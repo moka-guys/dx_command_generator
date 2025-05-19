@@ -2,7 +2,8 @@
 
 import sys
 from typing import List
-from workflow import CommandGenerator, CP2WorkflowGenerator # Import from the module
+from workflow import CommandGenerator, CP2WorkflowGenerator
+from cov import CoverageCommandGenerator  # Import the new generator
 
 def main():
     """Main function to select and run a command generator"""
@@ -11,6 +12,7 @@ def main():
     # Add new generator classes here as they are implemented
     generators: List[CommandGenerator] = [
         CP2WorkflowGenerator(),
+        CoverageCommandGenerator(),  # Add the new generator
         # Example: AnotherWorkflowGenerator(),
     ]
 
