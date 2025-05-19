@@ -42,19 +42,23 @@ class CNVCommandGenerator(CommandGenerator):
             print("Falling back to default configuration")
             return {}
 
-    def _get_cnv_bedfile(self, pan_number: str) -> str:
+    def _get_cnv_bedfile(self, pan_number: str) -> Optional[str]:
         """Get the CNV bedfile for a given pan number"""
         try:
-            panel_info = self.panel_config.get(pan_number, {})
+            panel_info = self.panel_config.get(pan_number)
+            if panel_info is None:
+                raise ValueError(f"Pan number {pan_number} not found in panel configuration")
+            
             cnv_bedfile = panel_info.get('ed_cnvcalling_bedfile')
             if cnv_bedfile:
                 return f"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{cnv_bedfile}_CNV.bed"
+            else:
+                print(f"Note: Pan number {pan_number} found but has no CNV bedfile configured - skipping CNV analysis")
+                return None
+                
         except Exception as e:
-            print(f"Warning: Error getting CNV bedfile for {pan_number}: {e}")
-        
-        # Fallback to default if not found
-        print(f"Warning: No CNV bedfile found for {pan_number}, using default Pan5215_CNV.bed")
-        return "project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5215_CNV.bed"
+            print(f"Error: Failed to process {pan_number}: {e}")
+            raise
 
     @property
     def name(self) -> str:
@@ -236,6 +240,11 @@ class CNVCommandGenerator(CommandGenerator):
 
                 # Generate command for each Pan number
                 for pan_number in sorted(pan_numbers):
+                    # Get the CNV bedfile - skip this pan if no bedfile configured
+                    cnv_bedfile = self._get_cnv_bedfile(pan_number)
+                    if cnv_bedfile is None:
+                        continue
+                        
                     command = (
                         f"JOB_ID_CNV_{pan_number}=$(dx run project-ByfFPz00jy1fk6PjpZ95F27J:applet-GybZV0006bZFBzgf54KP7BKj "
                         f"--priority high -y "
@@ -244,7 +253,7 @@ class CNVCommandGenerator(CommandGenerator):
                         f"-ibam_str=markdup "
                         f"-ireference_genome=project-ByfFPz00jy1fk6PjpZ95F27J:file-B6ZY7VG2J35Vfvpkj8y0KZ01 "
                         f"-isamplename_str=_markdup.bam "
-                        f"-isubpanel_bed={self._get_cnv_bedfile(pan_number)} "
+                        f"-isubpanel_bed={cnv_bedfile} "
                         f"-iproject_name={project_name} "
                         f"-ibamfile_pannumbers={pan_number} "
                         f"--dest={project_id} --brief -y)\n"
@@ -264,7 +273,7 @@ fi
 
                 # Make executable
                 os.chmod(output_file, 0o755)
-                print(f"\nSuccessfully generated commands for {len(pan_numbers)} Pan numbers")
+                print(f"\nSuccessfully generated commands for CNV analysis")
                 print(f"Output written to: {output_file}")
 
         except IOError as e:
