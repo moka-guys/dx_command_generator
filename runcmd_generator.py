@@ -6,6 +6,7 @@ from workflow import CommandGenerator, CP2WorkflowGenerator
 from cov import CoverageCommandGenerator  # Import the new generator
 from picard import PicardCommandGenerator  # Import the Picard generator
 from fqc import FastQCCommandGenerator  # Import the FastQC generator
+from readcount import ReadcountCommandGenerator  # Import the Readcount generator
 
 def main():
     """Main function to select and run a command generator"""
@@ -17,6 +18,7 @@ def main():
         CoverageCommandGenerator(),  # Add the new generator
         PicardCommandGenerator(),  # Add the Picard generator
         FastQCCommandGenerator(),  # Add the FastQC generator
+        ReadcountCommandGenerator(),  # Add the Readcount generator
         # Example: AnotherWorkflowGenerator(),
     ]
 
