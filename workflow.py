@@ -286,9 +286,9 @@ class CP2WorkflowGenerator(CommandGenerator):
         cnv_stage_skip = "true"
         if "NA12878" in sample_name: # Case-sensitive check for NA12878
             cnv_stage_skip = "false"
-            print("  Info: vcf_eval (CNV stage part) will be enabled for NA12878 control sample.")
+            print("  Info: vcf_eval will be enabled for NA12878 control sample.")
         else:
-            print("  Info: vcf_eval (CNV stage part) will be skipped.")
+            print("  Info: vcf_eval will be skipped.")
 
         # Ensure project_id_val and project_name_val are shell-safe if they are not placeholders
         # For placeholders, they are fine as is. For actual values, quoting might be needed if they contain spaces,
@@ -347,7 +347,7 @@ fi
         print(f"    - Variant Calling BED: {variant_bed}")
         print(f"    - Coverage BED: {coverage_bed}")
         print(f"    - PRS Skip: {prs_skip}")
-        print(f"    - CNV Stage Skip (vcf_eval): {cnv_stage_skip}")
+        print(f"    - vcf_eval: {cnv_stage_skip}")
         if polyedge_params:
              print(f"    - PolyEdge Params: Enabled")
         return True
