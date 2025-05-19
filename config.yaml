@@ -1,3 +1,4 @@
+version: "1.0.0"
 sambamba_bed: "project-ByfFPz00jy1fk6PjpZ95F27J:file-Gzj0Pyj0jy1VpJz3768kz8KY"
 normals_RData: "project-J0Jb8Vj0Xj5JG61ZK66fjg47:file-J0Kzf3804zjJygFfFfJqXG6K"
 reference_genome: "project-ByfFPz00jy1fk6PjpZ95F27J:file-B6ZY7VG2J35Vfvpkj8y0KZ01"

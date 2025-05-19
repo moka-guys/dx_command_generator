@@ -21,7 +21,7 @@ def main():
     ]
 
     print("==============================================")
-    print("  DNAnexus Genomics Run Command Generator")
+    print("  DNAnexus Run Command Generator")
     print("==============================================")
 
     if not generators:
