@@ -258,14 +258,12 @@ class CP2WorkflowGenerator(CommandGenerator):
         else:
             print("  Info: PRS analysis will be skipped.")
 
-
         polyedge_params = ""
         if r_number in ["R210", "R211"]:
             polyedge_params = "-istage-GK8G6kj03JGyVGvk2Q44KQG1.gene=MSH2 -istage-GK8G6kj03JGyVGvk2Q44KQG1.chrom=2 -istage-GK8G6kj03JGyVGvk2Q44KQG1.poly_start=47641559 -istage-GK8G6kj03JGyVGvk2Q44KQG1.poly_end=47641586 -istage-GK8G6kj03JGyVGvk2Q44KQG1.skip=false"
             print(f"  Info: PolyEdge analysis parameters enabled for {r_number} sample.")
         else:
             print(f"  Info: PolyEdge analysis parameters will be skipped for {r_number} sample.")
-
 
         cnv_stage_skip = "true"
         if "NA12878" in sample_name: # Case-sensitive check for NA12878
@@ -274,52 +272,12 @@ class CP2WorkflowGenerator(CommandGenerator):
         else:
             print("  Info: vcf_eval will be skipped.")
 
-        # Ensure project_id_val and project_name_val are shell-safe if they are not placeholders
-        # For placeholders, they are fine as is. For actual values, quoting might be needed if they contain spaces,
-        # but DNAnexus project IDs and names typically don't.
-        # The script uses them as environment variables ${PROJECT_ID} and ${PROJECT_NAME}
-        # which are defined at the top of the generated script.
+        # Generate single-line command
+        run_command = f"dx run project-ByfFPz00jy1fk6PjpZ95F27J:workflow-Gzj03g80jy1XbKzZY4yz7JXZ --priority high -y --name \"{sample_name}\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true -istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper -istage-Ff0P73j0GYKX41VkF3j62F9j.sample=\"{sample_name}\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true -istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' -istage-G77VfJ803JGy589J21p7Jkqj.bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{coverage_bed}\" -istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} -istage-GK8G6p803JGx48f74jf16Kjx.prefix=\"{sample_name}\" -istage-GK8G6p803JGx48f74jf16Kjx.panel_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} {polyedge_params} --dest=\"${{PROJECT_ID}}\" --brief --auth \"${{AUTH_TOKEN}}\"\n"
 
-        # Command template from the original script
-        # Using f-string with triple quotes for readability
-        # Note: ${PROJECT_ID} and ${AUTH} are shell variables to be expanded by the generated script
-        run_command = f"""
-# Command for sample: {sample_name}
-JOB_ID_SAMPLE_{sample_name.replace('-', '_').replace('.', '_')}=$(dx run project-ByfFPz00jy1fk6PjpZ95F27J:workflow-Gzj03g80jy1XbKzZY4yz7JXZ \\
-    --priority high -y --name "{sample_name}" \\
-    -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads="${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz" \\
-    -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads="${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz" \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs="${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz" \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs="${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz" \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.sample="{sample_name}" \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true \\
-    -istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' \\
-    -istage-G77VfJ803JGy589J21p7Jkqj.bedfile="project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}" \\
-    -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation \\
-    -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile="project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}" \\
-    -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 \\
-    -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed="project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{coverage_bed}" \\
-    -istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} \\
-    -istage-GK8G6p803JGx48f74jf16Kjx.prefix="{sample_name}" \\
-    -istage-GK8G6p803JGx48f74jf16Kjx.panel_bed="project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}" \\
-    -istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} \\
-    {polyedge_params} \\
-    --dest="${{PROJECT_ID}}" --brief --auth "${{AUTH_TOKEN}}")
-
-if [ -z "${{JOB_ID_SAMPLE_{sample_name.replace('-', '_').replace('.', '_')}}}" ]; then
-    echo "ERROR: Failed to submit job for sample {sample_name}. Check dx toolkit output."
-else
-    echo "Successfully submitted job for {sample_name}: ${{JOB_ID_SAMPLE_{sample_name.replace('-', '_').replace('.', '_')}}}"
-    DEPENDS_LIST="${{DEPENDS_LIST}} -d ${{JOB_ID_SAMPLE_{sample_name.replace('-', '_').replace('.', '_')}}} "
-    # DEPENDS_LIST_SENTIEON might be used by other logic not shown, kept for compatibility
-    DEPENDS_LIST_SENTIEON="${{DEPENDS_LIST_SENTIEON}} -d ${{JOB_ID_SAMPLE_{sample_name.replace('-', '_').replace('.', '_')}}} "
-fi
-"""
         try:
             with open(output_file, 'a') as f:
-                f.write(run_command + "\n")
+                f.write(run_command)
         except IOError as e:
             print(f"  Error: Could not write to output file {output_file}: {e}")
             return False
@@ -364,14 +322,12 @@ fi
                     print(f"Detected Project Name from ID '{project_id_to_use}': {project_name_to_use}")
                 except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
                     print(f"Warning: Could not automatically determine project name from project ID '{project_id_to_use}'. Error: {e}")
-                    # project_name_to_use remains UNKNOWN_PROJECT or what was detected from dxfile
 
         if not project_id_to_use:
-            project_id_to_use = "{PROJECT_ID_PLACEHOLDER}" # Placeholder if still not found
+            project_id_to_use = "{PROJECT_ID_PLACEHOLDER}"
             print(f"Using placeholder for Project ID: {project_id_to_use}")
         if project_name_to_use == "UNKNOWN_PROJECT" and project_id_to_use == "{PROJECT_ID_PLACEHOLDER}":
              print(f"Warning: Project Name is unknown and Project ID is a placeholder. FastQ paths in script might be incorrect.")
-
 
         # 2. Determine Output File Name
         output_filename = args.output
@@ -390,33 +346,12 @@ fi
         # 4. Initialize Output Files
         try:
             with open(output_filename, 'w') as f:
-                f.write(f"""#!/bin/bash
-# DNAnexus Workflow Run Commands
-# Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-# Workflow: {self.name}
-
-# --- Configuration ---
-AUTH_TOKEN="{auth_token}"
-PROJECT_ID="{project_id_to_use}"
-PROJECT_NAME="{project_name_to_use}" # Used for constructing input file paths
-
-# --- Dependency Tracking ---
-# These lists will be populated with job IDs for chaining, e.g., for MultiQC
-DEPENDS_LIST=""
-DEPENDS_LIST_SENTIEON="" # If needed for other tools
-
-echo "Starting script generation..."
-echo "Auth Token: ${{AUTH_TOKEN}}"
-echo "Project ID: ${{PROJECT_ID}}"
-echo "Project Name: ${{PROJECT_NAME}}"
-echo "----------------------------------------"
-""")
+                f.write(f"AUTH_TOKEN=\"{auth_token}\"\nPROJECT_ID=\"{project_id_to_use}\"\nPROJECT_NAME=\"{project_name_to_use}\"\n\n")
             os.chmod(output_filename, 0o755) # Make executable
             print(f"Initialized output script: {output_filename}")
         except IOError as e:
             print(f"Fatal Error: Could not write to or set permissions on output file {output_filename}: {e}")
             return
-
 
         failures_csv_file = args.failures if args.failures else "failures.csv"
         try:
@@ -425,7 +360,6 @@ echo "----------------------------------------"
             print(f"Initialized failures log: {failures_csv_file}")
         except IOError as e:
             print(f"Warning: Could not initialize failures CSV {failures_csv_file}: {e}")
-            # Continue without failures CSV if it cannot be created
 
         # 5. Process Samples
         processed_count = 0
@@ -439,9 +373,6 @@ echo "----------------------------------------"
                 sample_file_path = temp_file_created_path
             else:
                 print(f"Error: Failed to extract samples from DNAnexus file {args.dxfile}. Cannot proceed.")
-                # Clean up output file header to indicate failure
-                with open(output_filename, 'a') as f:
-                    f.write("\n# ERROR: FAILED TO EXTRACT SAMPLES FROM DXFILE. NO COMMANDS GENERATED.\n")
                 return
         elif args.file:
             sample_file_path = args.file
@@ -453,9 +384,7 @@ echo "----------------------------------------"
         if sample_file_path:
             if not os.path.isfile(sample_file_path):
                 print(f"Error: Sample file '{sample_file_path}' not found!")
-                with open(output_filename, 'a') as f:
-                    f.write(f"\n# ERROR: Sample file '{sample_file_path}' not found. NO COMMANDS GENERATED.\n")
-                if temp_file_created_path and os.path.exists(temp_file_created_path): # Clean up temp file
+                if temp_file_created_path and os.path.exists(temp_file_created_path):
                     os.unlink(temp_file_created_path)
                 return
             try:
@@ -464,16 +393,12 @@ echo "----------------------------------------"
                 print(f"Read {len(samples_to_process)} samples from file: {sample_file_path}")
             except IOError as e:
                 print(f"Error: Could not read sample file '{sample_file_path}': {e}")
-                with open(output_filename, 'a') as f:
-                     f.write(f"\n# ERROR: Could not read sample file '{sample_file_path}'. NO COMMANDS GENERATED.\n")
-                if temp_file_created_path and os.path.exists(temp_file_created_path): # Clean up temp file
+                if temp_file_created_path and os.path.exists(temp_file_created_path):
                     os.unlink(temp_file_created_path)
                 return
 
         if not samples_to_process:
             print("No samples to process.")
-            with open(output_filename, 'a') as f:
-                f.write("\n# INFO: No samples were provided or found to process.\n")
         else:
             total_samples = len(samples_to_process)
             for i, sample_name_raw in enumerate(samples_to_process, 1):
@@ -484,57 +409,6 @@ echo "----------------------------------------"
                 else:
                     failed_count += 1
                 print("--------------------------------------------")
-
-        # 6. Add MultiQC Footer (or other post-processing)
-        try:
-            with open(output_filename, 'a') as f:
-                f.write(f"""
-# --- Post-processing ---
-echo "----------------------------------------"
-echo "All sample processing commands have been added to the script."
-
-if [ -n "$DEPENDS_LIST" ]; then
-    echo "Attempting to run MultiQC for all successfully submitted sample jobs..."
-    # Ensure PROJECT_NAME_FOR_MULTIQC is set; defaults to PROJECT_NAME
-    # If PROJECT_NAME is a placeholder, MultiQC might require a valid project name or ID.
-    PROJECT_NAME_FOR_MULTIQC="${{PROJECT_NAME}}"
-    if [ "${{PROJECT_NAME_FOR_MULTIQC}}" == "UNKNOWN_PROJECT" ] || [ "${{PROJECT_NAME_FOR_MULTIQC}}" == "" ]; then
-        echo "Warning: PROJECT_NAME is unknown. MultiQC might not find data if it relies on project name for search."
-        echo "You might need to adjust the MultiQC command or ensure PROJECT_NAME is correctly set."
-    fi
-    
-    # Using a specific applet ID for MultiQC as in the original script
-    # Using PROJECT_ID for --dest unless a specific output project for MultiQC is desired
-    MULTIQC_JOB_ID=$(dx run project-ByfFPz00jy1fk6PjpZ95F27J:applet-GXqBzg00jy1pXkQVkY027QqV \\
-        --priority high -y --name "MultiQC_Report_$(date +%Y%m%d_%H%M%S)" \\
-        -iproject_for_multiqc="${{PROJECT_NAME_FOR_MULTIQC}}" \\
-        -icoverage_level=30 \\
-        ${{DEPENDS_LIST}} \\
-        --dest="${{PROJECT_ID}}" --brief --auth "${{AUTH_TOKEN}}")
-    
-    if [ -z "${{MULTIQC_JOB_ID}}" ]; then
-        echo "ERROR: Failed to submit MultiQC job. Check dx toolkit output."
-    else
-        echo "MultiQC job submitted: ${{MULTIQC_JOB_ID}}"
-    fi
-else
-    echo "No sample jobs were successfully prepared for dependency, MultiQC will not be run automatically by this script."
-fi
-
-echo "----------------------------------------"
-echo "Script generation finished."
-echo "Output script: {output_filename}"
-echo "Total samples processed: {processed_count}"
-echo "Total samples failed (pre-submission): {failed_count}"
-if [ {failed_count} -gt 0 ]; then
-    echo "Failed sample details are in: {failures_csv_file}"
-fi
-echo "To run the generated jobs: bash {output_filename}"
-""")
-            print("Added MultiQC command and footer to the script.")
-        except IOError as e:
-            print(f"Error: Could not write MultiQC footer to output file {output_filename}: {e}")
-
 
         # 7. Clean up temporary file if created
         if temp_file_created_path and os.path.exists(temp_file_created_path):
@@ -552,10 +426,9 @@ echo "To run the generated jobs: bash {output_filename}"
         if failed_count > 0 or (os.path.exists(failures_csv_file) and os.path.getsize(failures_csv_file) > len("sample_name,failure_reason\n") +1):
             print(f"  Failures log: {os.path.abspath(failures_csv_file)}")
         else:
-            if os.path.exists(failures_csv_file): # remove empty failures file
+            if os.path.exists(failures_csv_file):
                  try: os.unlink(failures_csv_file)
                  except: pass
-
 
         print(f"\nTo execute the generated DNAnexus commands, run:\n  bash {os.path.abspath(output_filename)}")
         print("==============================================")
