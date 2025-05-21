@@ -14,3 +14,4 @@ picard_vendor_exome_bedfile: "project-ByfFPz00jy1fk6PjpZ95F27J:file-Gzj07J00jy1k
 common_data_project: "project-ByfFPz00jy1fk6PjpZ95F27J"
 readcount_bedfile: "project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5279_exomeDepth.bed"
 variant_bedfile: "project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5272_data.bed"
+as_panel_config: "/usr/local/src/mokaguys/apps/automate_demultiplex/config/panel_config.py"

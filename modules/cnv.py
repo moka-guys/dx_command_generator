@@ -24,8 +24,10 @@ class CNVCommandGenerator(DXCommandGenerator):
     def _fetch_panel_config(self) -> Dict:
         """Load the panel configuration from local file"""
         try:
-            # Path to the local panel config
-            config_path = "/usr/local/src/mokaguys/apps/automate_demultiplex/config/panel_config.py"
+            # Get path from config
+            config_path = self.config_values.get('as_panel_config')
+            if not config_path:
+                raise ValueError("Panel config path not found in config file")
             
             # Load the module using importlib
             spec = importlib.util.spec_from_file_location("panel_config", config_path)
@@ -173,7 +175,7 @@ class CNVCommandGenerator(DXCommandGenerator):
                         f"-isubpanel_bed={cnv_bedfile} "
                         f"-iproject_name={project_name} "
                         f"-ibamfile_pannumbers={pan_number} "
-                        f"--dest={project_id} --brief -y\n" # Original format: single line, no JOB_ID, no DEPENDS_LIST
+                        f"--dest={project_id} --brief -y\n"
                     )
                     f.write(command)
 
