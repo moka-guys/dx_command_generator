@@ -49,11 +49,6 @@ class FastQCCommandGenerator(DXCommandGenerator):
 
         self._generate_fastqc_commands(fastq_pairs, output_file, project_id)
 
-    def _fastq_base_name_transform(self, filename: str) -> str:
-        """Transforms filename to a common base name for R1/R2 pairing."""
-        # Replace R1/R2 with R# for consistent base name extraction
-        return filename.replace("_R1.", "_R#.").replace("_R2.", "_R#.")
-
     def _find_fastq_pairs(self, project_id: str) -> List[Tuple[str, str]]:
         """Finds R1/R2 FASTQ pairs in the project using common utility"""
         r1_glob_pattern = "*_R1.fastq.gz"
@@ -62,22 +57,23 @@ class FastQCCommandGenerator(DXCommandGenerator):
         r1_files_data = self._find_dx_files(project_id, r1_glob_pattern)
         r2_files_data = self._find_dx_files(project_id, r2_glob_pattern)
         
-        return self._pair_dx_files(r1_files_data, "_R1.fastq.gz", r2_files_data, "_R2.fastq.gz",
-                                   base_name_transform=self._fastq_base_name_transform)
+        # The _pair_dx_files utility will handle stripping the suffixes correctly
+        # based on the provided primary and secondary suffixes.
+        return self._pair_dx_files(r1_files_data, "_R1.fastq.gz", r2_files_data, "_R2.fastq.gz")
 
     def _generate_fastqc_commands(self, fastq_pairs: List[Tuple[str, str]], 
                                   output_file: str, project_id: str) -> None:
         """Generates FastQC analysis commands"""
         # Base command template
         base_command = (
-            f"dx run {self.fastqc_applet_id} " # Use applet from config
+            f"dx run {self.fastqc_applet_id} "
             "-ireads={r1_id} "
             "-ireads={r2_id} "
             f"--dest {project_id} -y"
         )
 
         try:
-            with open(output_file, 'a') as f: # Append to initialized file
+            with open(output_file, 'a') as f:
                 for i, (r1_id, r2_id) in enumerate(fastq_pairs, 1):
                     command = base_command.format(r1_id=r1_id, r2_id=r2_id)
                     f.write(f"{command}\n")
