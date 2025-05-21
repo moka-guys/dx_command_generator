@@ -257,11 +257,15 @@ class CP2WorkflowGenerator(CommandGenerator):
                 f.write(f'"{sample_name}","{msg}"\n')
             return False
 
-        batch_pool_match = re.search(r'NGS\d+[A-Z]+\d+', sample_name) # Original regex
-        batch = batch_pool_match.group(0) if batch_pool_match else "NGS650FFV06POOL2" # Fallback
+        batch_pool_match = re.search(r'(NGS\d+[A-Za-z0-9]*?)(?:_|$)', sample_name)  # Match NGS and following chars until underscore or end
+        batch = batch_pool_match.group(1) if batch_pool_match else None  # No fallback value
 
-        if not batch_pool_match:
-            print(f"  Warning: Could not detect batch information (e.g., NGS<digits><LETTERS><digits>) from sample name '{sample_name}'. Using fallback: {batch}")
+        if not batch:
+            msg = f"Could not detect batch information (starting with NGS) from sample name '{sample_name}'."
+            print(f"  Warning: {msg}")
+            with open(failures_csv, 'a') as f:
+                f.write(f'"{sample_name}","{msg}"\n')
+            return False
 
         # Bed files (as per original script, these are hardcoded for this workflow)
         variant_bed = "Pan5272_data.bed"
