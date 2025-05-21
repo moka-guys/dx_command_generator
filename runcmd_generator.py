@@ -3,25 +3,23 @@
 import sys
 from typing import List
 from workflow import CommandGenerator, CP2WorkflowGenerator
-from cov import CoverageCommandGenerator  # Import the new generator
-from picard import PicardCommandGenerator  # Import the Picard generator
-from fqc import FastQCCommandGenerator  # Import the FastQC generator
-from readcount import ReadcountCommandGenerator  # Import the Readcount generator
-from cnv import CNVCommandGenerator  # Import the CNV generator
+from cov import CoverageCommandGenerator
+from picard import PicardCommandGenerator
+from fqc import FastQCCommandGenerator
+from readcount import ReadcountCommandGenerator 
+from cnv import CNVCommandGenerator 
 
 def main():
     """Main function to select and run a command generator"""
 
     # List of available command generators
-    # Add new generator classes here as they are implemented
     generators: List[CommandGenerator] = [
         CP2WorkflowGenerator(),
-        CoverageCommandGenerator(),  # Add the new generator
-        PicardCommandGenerator(),  # Add the Picard generator
-        FastQCCommandGenerator(),  # Add the FastQC generator
-        ReadcountCommandGenerator(),  # Add the Readcount generator
-        CNVCommandGenerator(),  # Add the CNV generator
-        # Example: AnotherWorkflowGenerator(),
+        CoverageCommandGenerator(), 
+        PicardCommandGenerator(), 
+        FastQCCommandGenerator(), 
+        ReadcountCommandGenerator(), 
+        CNVCommandGenerator(),
     ]
 
     print("==============================================")

@@ -351,7 +351,7 @@ fi
         print(f"    - Variant Calling BED: {variant_bed}")
         print(f"    - Coverage BED: {coverage_bed}")
         print(f"    - PRS Skip: {prs_skip}")
-        print(f"    - vcf_eval: {cnv_stage_skip}")
+        print(f"    - vcf_eval Skip: {cnv_stage_skip}")
         if polyedge_params:
              print(f"    - PolyEdge Params: Enabled")
         return True
