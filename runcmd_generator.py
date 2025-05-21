@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import yaml
 from typing import List
 from workflow import CommandGenerator, CP2WorkflowGenerator
 from cov import CoverageCommandGenerator
@@ -11,6 +12,15 @@ from cnv import CNVCommandGenerator
 
 def main():
     """Main function to select and run a command generator"""
+
+    # Load config and version
+    try:
+        with open('config.yaml', 'r') as config_file:
+            config = yaml.safe_load(config_file)
+            version = config.get('version', 'unknown')
+    except Exception as e:
+        version = 'unknown'
+        print(f"Warning: Could not load version from config.yaml: {e}")
 
     # List of available command generators
     generators: List[CommandGenerator] = [
@@ -23,7 +33,7 @@ def main():
     ]
 
     print("==============================================")
-    print("  DNAnexus Run Command Generator")
+    print(f"  DNAnexus Run Command Generator v{version}")
     print("==============================================")
 
     if not generators:
