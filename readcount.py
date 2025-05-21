@@ -25,15 +25,15 @@ class ReadcountCommandGenerator(CommandGenerator):
         """Get authentication token from file or use placeholder"""
         auth_token = ""
         try:
-            with open(self.auth_token_path, 'r') as f:
+            with open(self.config_values['dnanexus_auth_token_path'], 'r') as f:
                 auth_token = f.read().strip()
             if auth_token:
-                print(f"Successfully read auth token from {self.auth_token_path}")
+                print(f"Successfully read auth token from {self.config_values['dnanexus_auth_token_path']}")
             else:
-                print(f"Warning: Auth token file {self.auth_token_path} is empty. Using placeholder.")
+                print(f"Warning: Auth token file {self.config_values['dnanexus_auth_token_path']} is empty. Using placeholder.")
                 auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
         except Exception as e:
-            print(f"Error reading auth token from {self.auth_token_path}: {e}. Using placeholder.")
+            print(f"Error reading auth token from {self.config_values['dnanexus_auth_token_path']}: {e}. Using placeholder.")
             auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
         return auth_token
 
@@ -156,45 +156,7 @@ class ReadcountCommandGenerator(CommandGenerator):
 
             try:
                 with open(output_filename, 'w') as f:
-                    f.write(f"""#!/bin/bash
-# DNAnexus Readcount Command
-# Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-# Command Type: {self.name}
-
-# --- Configuration ---
-AUTH_TOKEN="{auth_token}"
-PROJECT_ID="{project_id}"
-PROJECT_NAME="{project_name}"
-PAN_NUMBERS="{pan_numlist}"
-
-echo "Starting readcount command execution..."
-echo "Auth Token: ${{AUTH_TOKEN}}"
-echo "Project ID: ${{PROJECT_ID}}"
-echo "Project Name: ${{PROJECT_NAME}}"
-echo "PAN Numbers: ${{PAN_NUMBERS}}"
-echo "----------------------------------------"
-
-# Execute readcount command
-dx run project-ByfFPz00jy1fk6PjpZ95F27J:applet-GyQGKjQ0qG6x59F4f1qBFvgz \\
-    --priority high -y \\
-    --instance-type mem1_ssd1_v2_x8 \\
-    --name "ED_Readcount-CP2" \\
-    -ireference_genome=project-ByfFPz00jy1fk6PjpZ95F27J:file-B6ZY7VG2J35Vfvpkj8y0KZ01 \\
-    -ibedfile=project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5279_exomeDepth.bed \\
-    -ibam_str="*markdup.ba*" \\
-    -inormals_RData=project-J0Jb8Vj0Xj5JG61ZK66fjg47:file-J0Kzf3804zjJygFfFfJqXG6K \\
-    -iproject_name="${{PROJECT_NAME}}" \\
-    -ibamfile_pannumbers="${{PAN_NUMBERS}}" \\
-    --instance-type mem1_ssd1_v2_x36 \\
-    --dest="${{PROJECT_ID}}" \\
-    --brief -y \\
-    --auth "${{AUTH_TOKEN}}"
-
-echo "----------------------------------------"
-echo "Command generation finished."
-echo "Output script: {output_filename}"
-echo "To run the generated command: bash {output_filename}"
-""")
+                    f.write(f"""dx run project-ByfFPz00jy1fk6PjpZ95F27J:applet-GyQGKjQ0qG6x59F4f1qBFvgz --priority high -y --instance-type mem1_ssd1_v2_x8 --name "ED_Readcount-CP2" -ireference_genome=project-ByfFPz00jy1fk6PjpZ95F27J:file-B6ZY7VG2J35Vfvpkj8y0KZ01 -ibedfile=project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5279_exomeDepth.bed -ibam_str="*markdup.ba*" -inormals_RData=project-J0Jb8Vj0Xj5JG61ZK66fjg47:file-J0Kzf3804zjJygFfFfJqXG6K -iproject_name="{project_name}" -ibamfile_pannumbers="{pan_numlist}" --instance-type mem1_ssd1_v2_x36 --dest="{project_id}" --brief -y --auth "{auth_token}"\n""")
                 os.chmod(output_filename, 0o755)  # Make executable
                 print(f"\nGenerated readcount command script: {output_filename}")
                 print(f"To execute the command, run:\n  bash {os.path.abspath(output_filename)}")

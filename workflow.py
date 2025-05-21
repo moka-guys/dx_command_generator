@@ -23,7 +23,7 @@ class CP2WorkflowGenerator(CommandGenerator):
 
     @property
     def description(self) -> str:
-        return "Generate DNAnexus genomics workflow commands for CP2 analysis from RunManifest.csv"
+        return "Generate DNAnexus CP2 workflow commands using the RunManifest.csv file"
 
     def generate(self) -> None:
         args = self._parse_arguments()
@@ -52,15 +52,6 @@ class CP2WorkflowGenerator(CommandGenerator):
                 def __init__(self, **kwargs):
                     self.__dict__.update(kwargs)
             
-            args_dict = {
-                "dxfile": dxfile,
-                "sample": None,
-                "file": None,
-                "output": None,
-                "project": None,  # Will be auto-detected
-                "failures": "failures.csv"  # Default failures file
-            }
-
             # Detect project info immediately
             project_id, project_name = self._detect_project_info(dxfile)
             
@@ -76,11 +67,15 @@ class CP2WorkflowGenerator(CommandGenerator):
             print(f"  Project ID: {project_id}")
             print(f"  Project Name: {project_name}")
 
-            # Set the project ID in args
-            args_dict["project"] = project_id
-            
-            # Set output filename based on project name
-            args_dict["output"] = f"{project_name.replace(' ', '_')}_workflow_cmds.sh"
+            args_dict = {
+                "dxfile": dxfile,
+                "sample": None,
+                "file": None,
+                "project": project_id,  # Store detected project ID
+                "project_name": project_name,  # Store detected project name
+                "output": f"{project_name}_workflow_cmds.sh",  # Set output based on project name
+                "failures": "failures.csv"  # Default failures file
+            }
             
             return ArgsNamespace(**args_dict)
 
@@ -134,25 +129,23 @@ class CP2WorkflowGenerator(CommandGenerator):
         return project_id, project_name
 
     def _get_auth_token(self) -> str:
-        """Get authentication token from file or use placeholder"""
-        auth_token = ""
+        """Get authentication token from file"""
         if os.path.isfile(self.config_values["dnanexus_auth_token_path"]):
             try:
                 with open(self.config_values["dnanexus_auth_token_path"], 'r') as f:
                     auth_token = f.read().strip()
                 if auth_token:
                     print(f"Successfully read auth token from {self.config_values["dnanexus_auth_token_path"]}")
+                    return auth_token
                 else:
-                    print(f"Warning: Auth token file {self.config_values["dnanexus_auth_token_path"]} is empty. Using placeholder.")
-                    auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
+                    print(f"Error: Auth token file {self.config_values["dnanexus_auth_token_path"]} is empty.")
             except Exception as e:
-                print(f"Error reading auth token from {self.config_values["dnanexus_auth_token_path"]}: {e}. Using placeholder.")
-                auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
+                print(f"Error reading auth token from {self.config_values["dnanexus_auth_token_path"]}: {e}")
         else:
-            auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-            print(f"Warning: Auth token file not found at {self.config_values["dnanexus_auth_token_path"]}. Using placeholder.")
-
-        return auth_token
+            print(f"Error: Auth token file not found at {self.config_values["dnanexus_auth_token_path"]}")
+        
+        print("A valid DNAnexus authentication token is required to proceed.")
+        return ""
 
     def _extract_samples_from_dx_file(self, dx_file_id: str) -> Optional[str]:
         """Extract sample names from a DNAnexus file, returns path to temporary file"""
@@ -296,54 +289,28 @@ class CP2WorkflowGenerator(CommandGenerator):
 
     def _process_workflow(self, args: Any) -> None:
         """Process the CP2 workflow with the given arguments"""
-        project_id_to_use = ""
-        project_name_to_use = "UNKNOWN_PROJECT" # Default if not found
+        # Use the project info already stored in args
+        if not args.project:
+            print("Error: No project ID available. Cannot proceed without a valid DNAnexus project ID.")
+            return
+            
+        project_id_to_use = args.project
+        project_name_to_use = args.project_name or "UNKNOWN_PROJECT"
         sample_file_path = None
-        temp_file_created_path = None # Store path of temp file if created
+        temp_file_created_path = None
 
-        # 1. Determine Project ID and Name
-        if args.dxfile:
-            detected_pid, detected_pname = self._detect_project_info(args.dxfile)
-            if detected_pid: project_id_to_use = detected_pid
-            if detected_pname: project_name_to_use = detected_pname
+        # No need to re-detect project info since it's already in args
+        print(f"Using Project ID: {project_id_to_use}")
+        print(f"Using Project Name: {project_name_to_use}")
 
-        if args.project: # User-provided project ID overrides detected one
-            project_id_to_use = args.project
-            print(f"Using user-provided Project ID: {project_id_to_use}")
-            # If project name wasn't found via dxfile, try to get it from this project ID
-            if project_name_to_use == "UNKNOWN_PROJECT" and project_id_to_use:
-                try:
-                    dx_desc_proj_cmd = ["dx", "describe", project_id_to_use, "--json"]
-                    print(f"Executing: {' '.join(dx_desc_proj_cmd)}")
-                    project_desc_json = subprocess.check_output(dx_desc_proj_cmd, text=True, stderr=subprocess.PIPE)
-                    import json
-                    project_desc = json.loads(project_desc_json)
-                    project_name_to_use = project_desc.get("name", "UNKNOWN_PROJECT")
-                    print(f"Detected Project Name from ID '{project_id_to_use}': {project_name_to_use}")
-                except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
-                    print(f"Warning: Could not automatically determine project name from project ID '{project_id_to_use}'. Error: {e}")
-
-        if not project_id_to_use:
-            project_id_to_use = "{PROJECT_ID_PLACEHOLDER}"
-            print(f"Using placeholder for Project ID: {project_id_to_use}")
-        if project_name_to_use == "UNKNOWN_PROJECT" and project_id_to_use == "{PROJECT_ID_PLACEHOLDER}":
-             print(f"Warning: Project Name is unknown and Project ID is a placeholder. FastQ paths in script might be incorrect.")
-
-        # 2. Determine Output File Name
+        # Use the output filename from args which was already set based on project name
         output_filename = args.output
-        if not output_filename:
-            if project_name_to_use != "UNKNOWN_PROJECT" and project_name_to_use:
-                output_filename = f"{project_name_to_use.replace(' ', '_')}_workflow_cmds.sh"
-            else:
-                output_filename = "dnanexus_workflow_cmds.sh"
-            print(f"Using default output script filename: {output_filename}")
-        else:
-            print(f"Using specified output script filename: {output_filename}")
+        print(f"Using output script filename: {output_filename}")
 
-        # 3. Get Auth Token
+        # Get Auth Token
         auth_token = self._get_auth_token()
 
-        # 4. Initialize Output Files
+        # Initialize Output Files
         try:
             with open(output_filename, 'w') as f:
                 f.write(f"AUTH_TOKEN=\"{auth_token}\"\nPROJECT_ID=\"{project_id_to_use}\"\nPROJECT_NAME=\"{project_name_to_use}\"\n\n")

@@ -6,3 +6,4 @@ __pycache__/
 *.pyz
 backup.py
 *.sh
+*.csv

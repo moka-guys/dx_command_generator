@@ -10,7 +10,6 @@ class CommandGenerator(ABC):
     def __init__(self):
         config = Config()
         self.config_values = config.all
-        self.auth_token_path = self.config_values.get('dnanexus_auth_token_path')
 
     @property
     @abstractmethod
