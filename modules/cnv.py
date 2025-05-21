@@ -156,7 +156,6 @@ class CNVCommandGenerator(DXCommandGenerator):
         """Generate CNV analysis commands for each Pan number"""
         try:
             with open(output_file, 'a') as f: # Append to initialized file
-                # Reverted to original simpler command generation for CNVCommandGenerator
                 for pan_number in sorted(pan_numbers):
                     # Get the CNV bedfile - skip this pan if no bedfile configured
                     cnv_bedfile = self._get_cnv_bedfile(pan_number)
@@ -220,20 +219,8 @@ class CNVReanalysisCommandGenerator(CNVCommandGenerator):
                 if not line:
                     continue
 
-                # Updated regex: looks for the sample_identifier (case-insensitive) anywhere in the line,
+                # Looks for the sample_identifier (case-insensitive) anywhere in the line,
                 # then captures the first 'Pan\d+' found in that same line.
-                # This makes it more robust if sample_identifier isn't strictly at the beginning.
-                # The prompt implies a 6-digit number, so let's specifically look for that too,
-                # but allow for broader sample names (like NGS0001_R1.001) as per workflow.py patterns.
-                
-                # Option 1: Sample identifier as a 6-digit number, followed by Pan
-                # Example: "123456,SomeData,Pan7890" -> original_pan = Pan7890
-                # Reverted to more generic search as per DXUtils.extract_pan_numbers logic,
-                # which assumes Pan\d+ might be anywhere after the sample identifier.
-                
-                # We expect the sample_identifier to be a distinct field or sub-string.
-                # Find the line that contains the sample_identifier.
-                # Then, within that line, find the Pan number.
                 if sample_identifier in line: # Simple check first to narrow down lines
                     pan_match = re.search(r'(Pan\d+)', line, re.IGNORECASE)
                     if pan_match:
@@ -264,9 +251,6 @@ class CNVReanalysisCommandGenerator(CNVCommandGenerator):
                 return
             
             # The prompt implies the sample identifier is a 6-digit number for the reanalysis.
-            # However, the RunManifest.csv can contain sample names like NGS0001_R1.001.
-            # I will prompt for a generic sample identifier and adapt the _find_original_pan_for_sample
-            # to be flexible to find either.
             sample_identifier = input("Enter sample identifier (e.g., 123456 or NGS0001_R1.001): ").strip()
             if not sample_identifier:
                 print("Error: Sample identifier cannot be empty.")
@@ -286,12 +270,12 @@ class CNVReanalysisCommandGenerator(CNVCommandGenerator):
             print(f"  Project ID: {project_id}")
             print(f"  Project Name: {project_name}")
 
-            readcount_file = self._find_readcount_file(project_id) # This is now correctly inherited
+            readcount_file = self._find_readcount_file(project_id)
             if not readcount_file:
                 print("Error: Could not find .RData readcount file in the project.")
                 return
 
-            cnv_bedfile = self._get_cnv_bedfile(new_pan_number) # This is now correctly inherited
+            cnv_bedfile = self._get_cnv_bedfile(new_pan_number)
             if cnv_bedfile is None:
                 print(f"Error: No CNV bedfile configured for NEW Pan number {new_pan_number}. Cannot proceed with reanalysis.")
                 return
@@ -313,7 +297,7 @@ class CNVReanalysisCommandGenerator(CNVCommandGenerator):
                 command = (
                     f"JOB_ID_CNV_REANALYSIS_{original_pan_number}=$(dx run {self.cnv_applet_id} "
                     f"--priority high -y "
-                    f"--name ED_CNVcallingREANALYSIS-{new_pan_number} " # Name format as per original request
+                    f"--name ED_CNVcallingREANALYSIS-{new_pan_number} "
                     f"-ireadcount_file={readcount_file} "
                     f"-ibam_str=markdup "
                     f"-ireference_genome={self.reference_genome} "
