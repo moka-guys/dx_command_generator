@@ -82,7 +82,7 @@ class CP2WorkflowGenerator(DXCommandGenerator):
             return None
 
     def _extract_samples_from_dx_file(self, dx_file_id: str) -> Optional[str]:
-        """Extract sample names from a DNAnexus file, returns path to temporary file"""
+        """Extract sample names from DNAnexus RunManifest.csv file, returns path to temporary file"""
         print(f"Fetching samples from DNAnexus file: {dx_file_id}")
         temp_file_path = ""
 
@@ -171,9 +171,9 @@ class CP2WorkflowGenerator(DXCommandGenerator):
                 f.write(f'"{sample_name}","{msg}"\n')
             return False
 
-        # Bed files (as per original script, these are hardcoded for this workflow, but use common_data_project from config)
-        variant_bed = f"{self.common_data_project}:/Data/BED/Pan5272_data.bed"
-        coverage_bed = f"{self.common_data_project}:/Data/BED/Pan5272_sambamba.bed"
+        # Bed files
+        variant_bed = self.config_values.get('variant_bedfile')
+        coverage_bed = self.config_values.get('sambamba_bed')
 
         prs_skip = "true"
         if r_number == "R134":
