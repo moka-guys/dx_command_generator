@@ -3,7 +3,6 @@
 import sys
 import yaml
 from typing import List
-from modules.base import CommandGenerator
 from modules.workflow import CP2WorkflowGenerator
 from modules.coverage import CoverageCommandGenerator
 from modules.picard import PicardCommandGenerator

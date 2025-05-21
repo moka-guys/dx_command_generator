@@ -4,10 +4,11 @@ import os
 import sys
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Set, Any
-from modules.base import CommandGenerator
+from abc import ABC, abstractmethod # Now directly importing ABC and abstractmethod
 from modules.dx_utils import DXUtils
+from config import Config # Import Config from the root directory
 
-class DXCommandGenerator(CommandGenerator):
+class DXCommandGenerator(ABC): # DXCommandGenerator now directly inherits from ABC
     """
     Abstract base class for command generators that interact with DNAnexus.
     Provides common methods for project info, file finding, and auth token handling.
@@ -15,8 +16,27 @@ class DXCommandGenerator(CommandGenerator):
     """
 
     def __init__(self):
-        super().__init__()
+        # Configuration initialization is now directly in this class's __init__
+        config = Config()
+        self.config_values = config.all
         # DXUtils methods are static, so no need to instantiate DXUtils
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Return the name of the command generator"""
+        pass
+
+    @property
+    @abstractmethod
+    def description(self) -> str:
+        """Return a description of what this command generator does"""
+        pass
+
+    @abstractmethod
+    def generate(self) -> None:
+        """Generate the commands"""
+        pass
 
     def _run_dx_find_command(self, dx_command_args: List[str], command_description: str) -> List[Dict]:
         """Wrapper for DXUtils.run_dx_find_command."""
@@ -43,7 +63,7 @@ class DXCommandGenerator(CommandGenerator):
         Prompts the user for a DNAnexus project ID or reads it from sys.argv.
         """
         if len(sys.argv) != 2:
-            print(f"\n{self.name} Configuration:")
+            print(f"\n{self.name} Configuration:") # Use self.name from the concrete subclass
             print("---------------------------")
             project_id = input(f"{prompt_message} (e.g., project-xxxx): ").strip()
             
@@ -52,7 +72,7 @@ class DXCommandGenerator(CommandGenerator):
                 return None
             
             if not project_id.startswith("project-"):
-                print("Error: Project ID must start with 'project-'")
+                print("Error: Invalid DNAnexus file ID format. Must start with 'project-'")
                 return None
         else:
             project_id = sys.argv[1]
@@ -118,14 +138,14 @@ class DXCommandGenerator(CommandGenerator):
             try:
                 file_id = item['id']
                 file_name = item['describe']['name']
-                if base_name_transform:
-                    file_name = base_name_transform(file_name)
+                # Apply transform first if provided, then strip suffix
+                processed_file_name = base_name_transform(file_name) if base_name_transform else file_name
 
-                if file_name.endswith(primary_suffix):
-                    base_name = file_name[:-len(primary_suffix)]
+                if processed_file_name.endswith(primary_suffix):
+                    base_name = processed_file_name[:-len(primary_suffix)]
                     primary_files[base_name] = file_id
                 else:
-                    print(f"Warning: Primary file '{file_name}' (ID: {file_id}) from query did not end with '{primary_suffix}'. Skipping.", file=sys.stderr)
+                    print(f"Warning: Primary file '{file_name}' (ID: {file_id}) from query did not end with '{primary_suffix}' after transform. Skipping.", file=sys.stderr)
             except KeyError as e:
                 print(f"Skipping primary item due to missing key {e} in JSON item: {item}", file=sys.stderr)
                 continue
@@ -134,11 +154,11 @@ class DXCommandGenerator(CommandGenerator):
             try:
                 file_id = item['id']
                 file_name = item['describe']['name']
-                if base_name_transform:
-                    file_name = base_name_transform(file_name)
+                # Apply transform first if provided, then strip suffix
+                processed_file_name = base_name_transform(file_name) if base_name_transform else file_name
 
-                if file_name.endswith(secondary_suffix):
-                    base_name = file_name[:-len(secondary_suffix)]
+                if processed_file_name.endswith(secondary_suffix):
+                    base_name = processed_file_name[:-len(secondary_suffix)]
                     secondary_files[base_name] = file_id
                 else:
                     print(f"Warning: Secondary file '{file_name}' (ID: {file_id}) from query did not end with '{secondary_suffix}'. Skipping.", file=sys.stderr)
