@@ -13,8 +13,8 @@ from base import CommandGenerator
 class CNVCommandGenerator(CommandGenerator):
     """Generates CNV analysis commands for samples in a DNAnexus project"""
 
-    def __init__(self, auth_token_path: str = "/usr/local/src/mokaguys/.dnanexus_auth_token"):
-        self.auth_token_path = auth_token_path
+    def __init__(self):
+        super().__init__()
         self.panel_config = self._fetch_panel_config()
 
     def _fetch_panel_config(self) -> Dict:

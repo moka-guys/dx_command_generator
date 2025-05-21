@@ -10,8 +10,8 @@ from base import CommandGenerator
 class CoverageCommandGenerator(CommandGenerator):
     """Generates coverage analysis commands for BAM/BAI pairs in a DNAnexus project"""
 
-    def __init__(self, auth_token_path: str = "/usr/local/src/mokaguys/.dnanexus_auth_token"):
-        self.auth_token_path = auth_token_path
+    def __init__(self):
+        super().__init__()
 
     @property
     def name(self) -> str:

@@ -10,8 +10,8 @@ from datetime import datetime
 class ReadcountCommandGenerator(CommandGenerator):
     """Generates readcount command for exome depth analysis"""
 
-    def __init__(self, auth_token_path: str = "/usr/local/src/mokaguys/.dnanexus_auth_token"):
-        self.auth_token_path = auth_token_path
+    def __init__(self):
+        super().__init__()
 
     @property
     def name(self) -> str:
