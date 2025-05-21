@@ -9,7 +9,7 @@ from modules.picard import PicardCommandGenerator
 from modules.fqc import FastQCCommandGenerator
 from modules.readcount import ReadcountCommandGenerator
 from modules.cnv import CNVCommandGenerator
-from config import Config # Import Config to get version
+from config import Config
 
 def main():
     """Main function to select and run a command generator"""
