@@ -10,13 +10,24 @@ from typing import List, Dict, Optional, Tuple, Set
 class DXUtils:
     """
     A utility class for common DNAnexus interactions.
+    
+    Provides static methods for interacting with the DNAnexus platform.
     """
 
     @staticmethod
     def run_dx_find_command(dx_command_args: List[str], command_description: str) -> List[Dict]:
         """
         Helper function to run a dx find data command and parse JSON output.
-        Exits if there's an error.
+        
+        Args:
+            dx_command_args: List of command arguments to pass to the dx command
+            command_description: Human-readable description of the command for error messages
+            
+        Returns:
+            List[Dict]: Parsed JSON output from the dx command
+            
+        Raises:
+            SystemExit: If the dx command fails, JSON parsing fails, or dx CLI is not found
         """
         print(f"Executing: {' '.join(dx_command_args)}", file=sys.stderr)
         try:
@@ -52,6 +63,12 @@ class DXUtils:
     def get_project_name(project_id: str) -> Optional[str]:
         """
         Get project name from project ID using 'dx describe'.
+        
+        Args:
+            project_id: DNAnexus project ID (e.g., 'project-xxxx')
+            
+        Returns:
+            Optional[str]: Project name if found, None if project cannot be described or doesn't exist
         """
         try:
             dx_describe = subprocess.run(["dx", "describe", project_id, "--json"],
@@ -66,6 +83,13 @@ class DXUtils:
     def detect_project_info(dx_file_id: str) -> Tuple[str, str]:
         """
         Detect project ID and name from a DNAnexus file ID using 'dx describe'.
+        
+        Args:
+            dx_file_id: DNAnexus file ID to get project information from
+            
+        Returns:
+            Tuple[str, str]: A tuple containing (project_id, project_name).
+                            Empty strings are returned if values cannot be detected.
         """
         project_id = ""
         project_name = ""
@@ -108,7 +132,16 @@ class DXUtils:
 
     @staticmethod
     def extract_pan_numbers(dx_file_id: str) -> Optional[Set[str]]:
-        """Extract unique Pan numbers from RunManifest.csv"""
+        """
+        Extract unique Pan numbers from RunManifest.csv.
+        
+        Args:
+            dx_file_id: DNAnexus file ID of the RunManifest.csv file
+            
+        Returns:
+            Optional[Set[str]]: Set of unique Pan numbers found in the manifest.
+                              Returns empty set if no Pan numbers found or if errors occur.
+        """
         pan_numbers = set()
 
         try:
@@ -135,21 +168,32 @@ class DXUtils:
 
     @staticmethod
     def get_auth_token(dnanexus_auth_token_path: str) -> str:
-        """Get authentication token from file or use placeholder"""
-        auth_token = ""
+        """
+        Get authentication token from file.
+        
+        Args:
+            dnanexus_auth_token_path: Path to the file containing the DNAnexus auth token
+            
+        Returns:
+            str: The authentication token
+            
+        Raises:
+            FileNotFoundError: If the auth token file doesn't exist
+            ValueError: If the auth token file is empty
+            IOError: If there are issues reading the auth token file
+        """
         try:
-            if os.path.isfile(dnanexus_auth_token_path):
-                with open(dnanexus_auth_token_path, 'r') as f:
-                    auth_token = f.read().strip()
-                if auth_token:
-                    print(f"Successfully read auth token from {dnanexus_auth_token_path}")
-                else:
-                    print(f"Warning: Auth token file {dnanexus_auth_token_path} is empty. Using placeholder.")
-                    auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-            else:
-                print(f"Error: Auth token file not found at {dnanexus_auth_token_path}. Using placeholder.")
-                auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-        except Exception as e:
-            print(f"Error reading auth token from {dnanexus_auth_token_path}: {e}. Using placeholder.")
-            auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-        return auth_token
+            if not os.path.isfile(dnanexus_auth_token_path):
+                raise FileNotFoundError(f"Auth token file not found at {dnanexus_auth_token_path}")
+                
+            with open(dnanexus_auth_token_path, 'r') as f:
+                auth_token = f.read().strip()
+                
+            if not auth_token:
+                raise ValueError(f"Auth token file {dnanexus_auth_token_path} is empty")
+                
+            print(f"Successfully read auth token from {dnanexus_auth_token_path}")
+            return auth_token
+            
+        except (IOError, OSError) as e:
+            raise IOError(f"Error reading auth token from {dnanexus_auth_token_path}: {e}")
