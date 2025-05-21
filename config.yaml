@@ -12,3 +12,4 @@ readcount_applet: "project-ByfFPz00jy1fk6PjpZ95F27J:applet-GyQGKjQ0qG6x59F4f1qBF
 picard_fasta_index: "project-ByfFPz00jy1fk6PjpZ95F27J:file-ByYgX700b80gf4ZY1GxvF3Jv"
 picard_vendor_exome_bedfile: "project-ByfFPz00jy1fk6PjpZ95F27J:file-Gzj07J00jy1kVJXbFj8z67G0"
 common_data_project: "project-ByfFPz00jy1fk6PjpZ95F27J"
+readcount_bedfile: "project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/Pan5279_exomeDepth.bed"
