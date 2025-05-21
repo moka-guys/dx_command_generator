@@ -4,11 +4,11 @@ import os
 import sys
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Set, Any
-from abc import ABC, abstractmethod # Now directly importing ABC and abstractmethod
+from abc import ABC, abstractmethod
 from modules.dx_utils import DXUtils
-from config import Config # Import Config from the root directory
+from config import Config
 
-class DXCommandGenerator(ABC): # DXCommandGenerator now directly inherits from ABC
+class DXCommandGenerator(ABC):
     """
     Abstract base class for command generators that interact with DNAnexus.
     Provides common methods for project info, file finding, and auth token handling.
@@ -63,7 +63,7 @@ class DXCommandGenerator(ABC): # DXCommandGenerator now directly inherits from A
         Prompts the user for a DNAnexus project ID or reads it from sys.argv.
         """
         if len(sys.argv) != 2:
-            print(f"\n{self.name} Configuration:") # Use self.name from the concrete subclass
+            print(f"\n{self.name} Configuration:")
             print("---------------------------")
             project_id = input(f"{prompt_message} (e.g., project-xxxx): ").strip()
             

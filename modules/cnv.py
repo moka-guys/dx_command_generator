@@ -289,7 +289,6 @@ class CNVReanalysisCommandGenerator(CNVCommandGenerator):
 
             output_file = f"{project_name.replace(' ', '_')}_cnv_reanalysis_cmds.sh"
 
-            # Revert to original format for reanalysis output: single line command
             if not self._initialize_output_file(output_file, project_id, project_name, "CNV ExomeDepth Reanalysis Commands", include_project_vars=False):
                 return
 
