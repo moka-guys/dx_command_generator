@@ -7,13 +7,15 @@ import sys
 import tempfile
 from datetime import datetime
 from typing import List, Tuple, Optional, Any
-from dx_command_generator import DXCommandGenerator # Changed import
+from dx_command_generator import DXCommandGenerator
 
-class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
+class CP2WorkflowGenerator(DXCommandGenerator):
     """Generates commands for CP2 workflow"""
 
     def __init__(self):
         super().__init__()
+        self.cp2_workflow_id = self.config_values.get('workflow')
+        self.common_data_project = self.config_values.get('common_data_project')
 
     @property
     def name(self) -> str:
@@ -35,13 +37,13 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
         print("Please provide the DNAnexus file-id for RunManifest.csv")
 
         try:
-            dxfile = input("Enter DNAnexus file ID (e.g., file-xxxx): ").strip()
+            dxfile_id = input("Enter DNAnexus file ID (e.g., file-xxxx): ").strip()
             
-            if not dxfile:
+            if not dxfile_id:
                 print("Error: No file ID provided.")
                 return None
             
-            if not dxfile.startswith("file-"):
+            if not dxfile_id.startswith("file-"):
                 print("Error: Invalid DNAnexus file ID format. Must start with 'file-'")
                 return None
 
@@ -50,15 +52,10 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
                 def __init__(self, **kwargs):
                     self.__dict__.update(kwargs)
             
-            # Use inherited method
-            project_id, project_name = self._detect_project_info(dxfile)
+            project_id, project_name = self._detect_project_info(dxfile_id)
             
-            if not project_id:
-                print("Error: Could not detect project ID from the provided file.")
-                return None
-                
-            if not project_name:
-                print("Error: Could not detect project name from the provided file.")
+            if not project_id or not project_name:
+                print("Error: Could not detect project information from the provided file.")
                 return None
 
             print(f"\nDetected Project Information:")
@@ -66,13 +63,13 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
             print(f"  Project Name: {project_name}")
 
             args_dict = {
-                "dxfile": dxfile,
+                "dxfile": dxfile_id,
                 "sample": None,
                 "file": None,
-                "project": project_id,  # Store detected project ID
-                "project_name": project_name,  # Store detected project name
-                "output": f"{project_name}_workflow_cmds.sh",  # Set output based on project name
-                "failures": "failures.csv"  # Default failures file
+                "project": project_id,
+                "project_name": project_name,
+                "output": f"{project_name.replace(' ', '_')}_workflow_cmds.sh",
+                "failures": "failures.csv"
             }
             
             return ArgsNamespace(**args_dict)
@@ -90,7 +87,6 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
         temp_file_path = ""
 
         try:
-            # Create a temporary file to store sample names
             with tempfile.NamedTemporaryFile(delete=False, mode='w+t', suffix=".txt") as temp_f:
                 temp_file_path = temp_f.name
 
@@ -101,8 +97,6 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
             samples = []
             for line in dx_cat_output.splitlines():
                 line = line.strip()
-                # Regex to find lines starting with NGS<digits> (potential sample lines)
-                # and extract the first part before a comma (if any) as the sample name.
                 match = re.match(r"^(NGS\d+[A-Za-z0-9_.-]*)(?:,.*)?", line)
                 if match:
                     sample_name = match.group(1)
@@ -110,7 +104,7 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
 
             if not samples:
                 print(f"Error: No samples found in the DNAnexus file '{dx_file_id}'. The file might be empty or not in the expected format (e.g., one sample identifier per line, or CSV with sample in first column, starting with NGS).")
-                os.unlink(temp_file_path) # Clean up empty temp file
+                os.unlink(temp_file_path)
                 return None
 
             with open(temp_file_path, 'w') as f_out:
@@ -167,8 +161,8 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
                 f.write(f'"{sample_name}","{msg}"\n')
             return False
 
-        batch_pool_match = re.search(r'(NGS\d+[A-Za-z0-9]*?)(?:_|$)', sample_name)  # Match NGS and following chars until underscore or end
-        batch = batch_pool_match.group(1) if batch_pool_match else None  # No fallback value
+        batch_pool_match = re.search(r'(NGS\d+[A-Za-z0-9]*?)(?:_|$)', sample_name)
+        batch = batch_pool_match.group(1) if batch_pool_match else None
 
         if not batch:
             msg = f"Could not detect batch information (starting with NGS) from sample name '{sample_name}'."
@@ -177,12 +171,12 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
                 f.write(f'"{sample_name}","{msg}"\n')
             return False
 
-        # Bed files (as per original script, these are hardcoded for this workflow)
-        variant_bed = "Pan5272_data.bed"
-        coverage_bed = "Pan5272_sambamba.bed"
+        # Bed files (as per original script, these are hardcoded for this workflow, but use common_data_project from config)
+        variant_bed = f"{self.common_data_project}:/Data/BED/Pan5272_data.bed"
+        coverage_bed = f"{self.common_data_project}:/Data/BED/Pan5272_sambamba.bed"
 
         prs_skip = "true"
-        if r_number == "R134": # Case-sensitive comparison for R numbers
+        if r_number == "R134":
             prs_skip = "false"
             print("  Info: PRS analysis will be enabled for R134 sample.")
         else:
@@ -196,14 +190,36 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
             print(f"  Info: PolyEdge analysis parameters will be skipped for {r_number} sample.")
 
         cnv_stage_skip = "true"
-        if "NA12878" in sample_name: # Case-sensitive check for NA12878
+        if "NA12878" in sample_name:
             cnv_stage_skip = "false"
             print("  Info: vcf_eval will be enabled for NA12878 control sample.")
         else:
             print("  Info: vcf_eval will be skipped.")
 
         # Generate single-line command
-        run_command = f"dx run project-ByfFPz00jy1fk6PjpZ95F27J:workflow-Gzj03g80jy1XbKzZY4yz7JXZ --priority high -y --name \"{sample_name}\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true -istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper -istage-Ff0P73j0GYKX41VkF3j62F9j.sample=\"{sample_name}\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true -istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' -istage-G77VfJ803JGy589J21p7Jkqj.bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{coverage_bed}\" -istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} -istage-GK8G6p803JGx48f74jf16Kjx.prefix=\"{sample_name}\" -istage-GK8G6p803JGx48f74jf16Kjx.panel_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} {polyedge_params} --dest=\"${{PROJECT_ID}}\" --brief --auth \"${{AUTH_TOKEN}}\" -y\n"
+        # Use self.cp2_workflow_id from config
+        run_command = (
+            f"dx run {self.cp2_workflow_id} --priority high -y --name \"{sample_name}\" "
+            f"-istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" "
+            f"-istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" "
+            f"-istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" "
+            f"-istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" "
+            "-istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true "
+            "-istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper "
+            f"-istage-Ff0P73j0GYKX41VkF3j62F9j.sample=\"{sample_name}\" "
+            "-istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true "
+            "-istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' "
+            f"-istage-G77VfJ803JGy589J21p7Jkqj.bedfile=\"{variant_bed}\" "
+            "-istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation "
+            f"-istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile=\"{variant_bed}\" "
+            "-istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 "
+            f"-istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed=\"{coverage_bed}\" "
+            f"-istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} "
+            f"-istage-GK8G6p803JGx48f74jf16Kjx.prefix=\"{sample_name}\" "
+            f"-istage-GK8G6p803JGx48f74jf16Kjx.panel_bed=\"{variant_bed}\" "
+            f"-istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} {polyedge_params} "
+            f"--dest=\"${{PROJECT_ID}}\" --brief --auth \"${{AUTH_TOKEN}}\" -y\n"
+        )
 
         try:
             with open(output_file, 'a') as f:
@@ -226,7 +242,6 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
 
     def _process_workflow(self, args: Any) -> None:
         """Process the CP2 workflow with the given arguments"""
-        # Use the project info already stored in args
         if not args.project:
             print("Error: No project ID available. Cannot proceed without a valid DNAnexus project ID.")
             return
@@ -236,25 +251,13 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
         sample_file_path = None
         temp_file_created_path = None
 
-        # No need to re-detect project info since it's already in args
         print(f"Using Project ID: {project_id_to_use}")
         print(f"Using Project Name: {project_name_to_use}")
 
-        # Use the output filename from args which was already set based on project name
         output_filename = args.output
         print(f"Using output script filename: {output_filename}")
 
-        # Get Auth Token (using inherited method)
-        auth_token = self._get_auth_token()
-
-        # Initialize Output Files
-        try:
-            with open(output_filename, 'w') as f:
-                f.write(f"AUTH_TOKEN=\"{auth_token}\"\nPROJECT_ID=\"{project_id_to_use}\"\nPROJECT_NAME=\"{project_name_to_use}\"\n\n")
-            os.chmod(output_filename, 0o755) # Make executable
-            print(f"Initialized output script: {output_filename}")
-        except IOError as e:
-            print(f"Fatal Error: Could not write to or set permissions on output file {output_filename}: {e}")
+        if not self._initialize_output_file(output_filename, project_id_to_use, project_name_to_use, "CP2 Workflow Commands"):
             return
 
         failures_csv_file = args.failures if args.failures else "failures.csv"
@@ -265,7 +268,6 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
         except IOError as e:
             print(f"Warning: Could not initialize failures CSV {failures_csv_file}: {e}")
 
-        # 5. Process Samples
         processed_count = 0
         failed_count = 0
         samples_to_process = []
@@ -306,7 +308,7 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
         else:
             total_samples = len(samples_to_process)
             for i, sample_name_raw in enumerate(samples_to_process, 1):
-                sample_name = sample_name_raw.strip().split(',')[0] # Take first part if CSV-like
+                sample_name = sample_name_raw.strip().split(',')[0]
                 print(f"\n--- [{i}/{total_samples}] Processing: {sample_name} ---")
                 if self._process_sample(sample_name, output_filename, failures_csv_file, project_id_to_use, project_name_to_use):
                     processed_count += 1
@@ -314,14 +316,12 @@ class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerato
                     failed_count += 1
                 print("--------------------------------------------")
 
-        # 7. Clean up temporary file if created
         if temp_file_created_path and os.path.exists(temp_file_created_path):
             try:
                 os.unlink(temp_file_created_path)
             except OSError as e:
                 print(f"Warning: Could not delete temporary file {temp_file_created_path}: {e}")
 
-        # 8. Print Summary
         print("\n========= Workflow Generation Summary =========")
         print(f"  Output script: {os.path.abspath(output_filename)}")
         print(f"  Total samples for which commands were generated: {processed_count}")

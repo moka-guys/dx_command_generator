@@ -3,25 +3,21 @@
 import sys
 import yaml
 from typing import List
-from base import CommandGenerator # Keep this for the abstract base
+from base import CommandGenerator
 from workflow import CP2WorkflowGenerator
 from cov import CoverageCommandGenerator
 from picard import PicardCommandGenerator
 from fqc import FastQCCommandGenerator
 from readcount import ReadcountCommandGenerator
 from cnv import CNVCommandGenerator
+from config import Config # Import Config to get version
 
 def main():
     """Main function to select and run a command generator"""
 
     # Load config and version
-    try:
-        with open('config.yaml', 'r') as config_file:
-            config = yaml.safe_load(config_file)
-            version = config.get('version', 'unknown')
-    except Exception as e:
-        version = 'unknown'
-        print(f"Warning: Could not load version from config.yaml: {e}")
+    config_instance = Config()
+    version = config_instance.get('version', 'unknown')
 
     # List of available command generators
     generators: List[CommandGenerator] = [
@@ -49,7 +45,7 @@ def main():
     while True:
         try:
             choice_str = input(f"\nSelect command type (number 1-{len(generators)}) or 0 to exit: ").strip()
-            if not choice_str: # Handle empty input
+            if not choice_str:
                 print("No choice entered. Please try again.")
                 continue
             
@@ -63,15 +59,15 @@ def main():
                 print(f"\n--- Starting: {selected_generator.name} ---")
                 selected_generator.generate()
                 print(f"--- Finished: {selected_generator.name} ---")
-                break # Exit after successful generation or if generator handles its own loop
+                break
             else:
                 print(f"Invalid choice. Please enter a number between 0 and {len(generators)}.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-        except EOFError: # Handle Ctrl+D
+        except EOFError:
             print("\nInput cancelled. Exiting program.")
             sys.exit(0)
-        except KeyboardInterrupt: # Handle Ctrl+C
+        except KeyboardInterrupt:
             print("\nOperation interrupted by user. Exiting program.")
             sys.exit(0)
         except Exception as e:

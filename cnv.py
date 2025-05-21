@@ -8,14 +8,18 @@ import sys
 import importlib.util
 from datetime import datetime
 from typing import List, Dict, Set, Optional
-from dx_command_generator import DXCommandGenerator # Changed import
+from dx_command_generator import DXCommandGenerator
 
-class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
+class CNVCommandGenerator(DXCommandGenerator):
     """Generates CNV analysis commands for samples in a DNAnexus project"""
 
     def __init__(self):
         super().__init__()
         self.panel_config = self._fetch_panel_config()
+        self.cnv_applet_id = self.config_values.get('cnv_applet')
+        self.common_data_project = self.config_values.get('common_data_project')
+        self.reference_genome = self.config_values.get('reference_genome')
+
 
     def _fetch_panel_config(self) -> Dict:
         """Load the panel configuration from local file"""
@@ -51,7 +55,8 @@ class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
                 
             cnv_bedfile = panel_info.get('ed_cnvcalling_bedfile')
             if cnv_bedfile:
-                return f"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{cnv_bedfile}_CNV.bed"
+                # Use common_data_project from config
+                return f"{self.common_data_project}:/Data/BED/{cnv_bedfile}_CNV.bed"
             else:
                 print(f"Note: Pan number {pan_number} found but has no CNV bedfile configured - skipping CNV analysis")
                 return None
@@ -75,33 +80,27 @@ class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
         print("Please provide the DNAnexus file-id for RunManifest.csv")
 
         try:
-            dxfile = input("Enter DNAnexus file ID (e.g., file-xxxx): ").strip()
+            dxfile_id = input("Enter DNAnexus file ID (e.g., file-xxxx): ").strip()
             
-            if not dxfile:
+            if not dxfile_id:
                 print("Error: No file ID provided.")
                 return
             
-            if not dxfile.startswith("file-"):
+            if not dxfile_id.startswith("file-"):
                 print("Error: Invalid DNAnexus file ID format. Must start with 'file-'")
                 return
 
-            # Use inherited method
-            project_id, project_name = self._detect_project_info(dxfile)
+            project_id, project_name = self._detect_project_info(dxfile_id)
             
-            if not project_id:
-                print("Error: Could not detect project ID from the provided file.")
-                return
-                
-            if not project_name:
-                print("Error: Could not detect project name from the provided file.")
+            if not project_id or not project_name:
+                print("Error: Could not detect project information from the provided file.")
                 return
 
             print(f"\nDetected Project Information:")
             print(f"  Project ID: {project_id}")
             print(f"  Project Name: {project_name}")
 
-            # Use inherited method
-            pan_numbers = self._extract_pan_numbers(dxfile)
+            pan_numbers = self._extract_pan_numbers(dxfile_id)
             if not pan_numbers:
                 print("Error: No Pan numbers found in the manifest file.")
                 return
@@ -110,16 +109,16 @@ class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
             for pan in sorted(pan_numbers):
                 print(f"  - {pan}")
 
-            # Find readcount file
             readcount_file = self._find_readcount_file(project_id)
             if not readcount_file:
                 print("Error: Could not find .RData readcount file in the project.")
                 return
 
-            # Generate output file name
             output_file = f"{project_name.replace(' ', '_')}_cnv_cmds.sh"
             
-            # Generate and write commands
+            if not self._initialize_output_file(output_file, project_id, project_name, "CNV Analysis Commands", include_project_vars=False):
+                return
+
             self._generate_cnv_commands(
                 pan_numbers=pan_numbers,
                 readcount_file=readcount_file,
@@ -134,49 +133,28 @@ class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
         except KeyboardInterrupt:
             print("\nOperation interrupted. Exiting.")
             return
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            return
 
     def _find_readcount_file(self, project_id: str) -> Optional[str]:
         """Find the .RData readcount file in the project"""
-        try:
-            # Search for .RData files
-            dx_find_cmd = [
-                "dx", "find", "data",
-                "--name", "*.RData",
-                "--class", "file",
-                "--project", project_id,
-                "--brief"
-            ]
-            
-            readcount_files = subprocess.check_output(dx_find_cmd, text=True, stderr=subprocess.PIPE).splitlines()
-            
-            if not readcount_files:
-                print("No .RData files found in the project.")
-                return None
-                
-            if len(readcount_files) > 1:
-                print(f"Warning: Multiple .RData files found. Using the first one: {readcount_files[0]}")
-                
-            return readcount_files[0]
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error searching for readcount file: {e}")
-            print(f"Command error output: {e.stderr}")
+        readcount_files_data = self._find_dx_files(project_id, "*.RData")
+        
+        if not readcount_files_data:
+            print("No .RData files found in the project.")
             return None
-        except Exception as e:
-            print(f"An unexpected error occurred while finding readcount file: {e}")
-            return None
+            
+        if len(readcount_files_data) > 1:
+            print(f"Warning: Multiple .RData files found. Using the first one: {readcount_files_data[0]['id']}")
+            
+        return readcount_files_data[0]['id']
 
     def _generate_cnv_commands(self, pan_numbers: Set[str], readcount_file: str,
                                  project_id: str, project_name: str, output_file: str) -> None:
         """Generate CNV analysis commands for each Pan number"""
         try:
-            with open(output_file, 'w') as f:
-                # Write header
-                f.write("#!/bin/bash\n")
-                f.write(f"# CNV Analysis Commands\n")
-                f.write(f"# Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"# Project: {project_name} ({project_id})\n\n")
-
+            with open(output_file, 'a') as f: # Append to initialized file
                 # Track for dependency list
                 f.write("# Initialize dependency tracking\n")
                 f.write("DEPENDS_LIST=\"\"\n\n")
@@ -189,12 +167,12 @@ class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
                         continue
                         
                     command = (
-                        f"JOB_ID_CNV_{pan_number}=$(dx run project-ByfFPz00jy1fk6PjpZ95F27J:applet-GybZV0006bZFBzgf54KP7BKj "
+                        f"JOB_ID_CNV_{pan_number}=$(dx run {self.cnv_applet_id} " # Use applet from config
                         f"--priority high -y "
                         f"--name ED_CNVcalling-{pan_number} "
                         f"-ireadcount_file={readcount_file} "
                         f"-ibam_str=markdup "
-                        f"-ireference_genome=project-ByfFPz00jy1fk6PjpZ95F27J:file-B6ZY7VG2J35Vfvpkj8y0KZ01 "
+                        f"-ireference_genome={self.reference_genome} " # Use reference genome from config
                         f"-isamplename_str=_markdup.bam "
                         f"-isubpanel_bed={cnv_bedfile} "
                         f"-iproject_name={project_name} "
@@ -214,8 +192,6 @@ else
 fi
 """)
 
-                # Make executable
-                os.chmod(output_file, 0o755)
                 print(f"\nSuccessfully generated commands for CNV analysis")
                 print(f"Output written to: {output_file}")
 

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 
-import subprocess
-import json
 import sys
 import os
 from typing import Dict, List, Optional, Tuple
-from dx_command_generator import DXCommandGenerator # Changed import
+from dx_command_generator import DXCommandGenerator
 
-class FastQCCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
+class FastQCCommandGenerator(DXCommandGenerator):
     """Generates FastQC analysis commands for FASTQ pairs in a DNAnexus project"""
 
     def __init__(self):
         super().__init__()
+        self.fastqc_applet_id = self.config_values.get('fastqc_applet')
 
     @property
     def name(self) -> str:
@@ -23,147 +22,62 @@ class FastQCCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenera
 
     def generate(self) -> None:
         """Main method to generate FastQC commands"""
-        if len(sys.argv) != 2:
-            print("\nFastQC Analysis Configuration:")
-            print("---------------------------")
-            project_id = input("Enter DNAnexus project ID (e.g., project-xxxx): ").strip()
-            
-            if not project_id:
-                print("Error: No project ID provided.")
-                return
-            
-            if not project_id.startswith("project-"):
-                print("Error: Project ID must start with 'project-'")
-                return
-        else:
-            project_id = sys.argv[1]
+        project_id = self._get_project_id_from_input("Enter DNAnexus project ID")
+        if not project_id:
+            return
 
-        # Use inherited method
         project_name = self._get_project_name(project_id)
-        if project_name:
-            output_file = f"{project_name}_fastqc_cmds.sh"
-            print(f"Using project name '{project_name}' for output filename")
+        if not project_name:
+            project_name = f"{project_id}_unknown_project" # Fallback if name not found
+            print(f"Could not determine project name, using '{project_name}' for output filename")
         else:
-            output_file = f"{project_id}_fastqc_commands.sh"
-            print(f"Could not determine project name, using project ID for output filename")
+            print(f"Using project name '{project_name}' for output filename")
+        
+        output_file = f"{project_name.replace(' ', '_')}_fastqc_cmds.sh"
 
         print(f"\nStarting FastQC command generation for project: {project_id}")
         print(f"Commands will be written to: {output_file}")
 
-        # Find FASTQ pairs
+        if not self._initialize_output_file(output_file, project_id, project_name, "FastQC Analysis Commands"):
+            return
+
         fastq_pairs = self._find_fastq_pairs(project_id)
 
         if not fastq_pairs:
             print("No FASTQ pairs found. No commands will be generated.")
             return
 
-        # Generate and write commands
         self._generate_fastqc_commands(fastq_pairs, output_file, project_id)
 
+    def _fastq_base_name_transform(self, filename: str) -> str:
+        """Transforms filename to a common base name for R1/R2 pairing."""
+        # Replace R1/R2 with R# for consistent base name extraction
+        return filename.replace("_R1.", "_R#.").replace("_R2.", "_R#.")
+
     def _find_fastq_pairs(self, project_id: str) -> List[Tuple[str, str]]:
-        """Finds R1/R2 FASTQ pairs in the project"""
-        # Glob patterns for FASTQ files
+        """Finds R1/R2 FASTQ pairs in the project using common utility"""
         r1_glob_pattern = "*_R1.fastq.gz"
         r2_glob_pattern = "*_R2.fastq.gz"
 
-        # Define dx commands with project specification
-        dx_command_r1_args = [
-            "dx", "find", "data",
-            "--name", r1_glob_pattern,
-            "--class", "file",
-            "--project", project_id,
-            "--json"
-        ]
-        dx_command_r2_args = [
-            "dx", "find", "data",
-            "--name", r2_glob_pattern,
-            "--class", "file",
-            "--project", project_id,
-            "--json"
-        ]
-
-        # Execute dx commands using inherited method
-        r1_files_data = self._run_dx_find_command(dx_command_r1_args, "R1 FASTQ file query")
-        r2_files_data = self._run_dx_find_command(dx_command_r2_args, "R2 FASTQ file query")
+        r1_files_data = self._find_dx_files(project_id, r1_glob_pattern)
+        r2_files_data = self._find_dx_files(project_id, r2_glob_pattern)
         
-        # Process found files
-        r1_files: Dict[str, str] = {}  # {base_filename: r1_file_id}
-        r2_files: Dict[str, str] = {}  # {base_filename: r2_file_id}
-
-        print(f"\nProcessing {len(r1_files_data)} items from R1 FASTQ query ('{r1_glob_pattern}').", file=sys.stderr)
-        for item in r1_files_data:
-            try:
-                file_id = item['id']
-                file_name = item['describe']['name']
-                
-                # Extract base name by removing R1 part and extension
-                base_name = file_name.replace("_R1.", "_R#.")
-                if base_name.endswith(".fastq.gz"):
-                    base_name = base_name[:-9]
-                r1_files[base_name] = file_id
-            except KeyError as e:
-                print(f"Skipping R1 item due to missing key {e} in JSON item: {sys.stderr}")
-                continue
-            
-        print(f"Processing {len(r2_files_data)} items from R2 FASTQ query ('{r2_glob_pattern}').", file=sys.stderr)
-        for item in r2_files_data:
-            try:
-                file_id = item['id']
-                file_name = item['describe']['name']
-
-                # Extract base name by removing R2 part and extension
-                base_name = file_name.replace("_R2.", "_R#.")
-                if base_name.endswith(".fastq.gz"):
-                    base_name = base_name[:-9]
-                r2_files[base_name] = file_id
-            except KeyError as e:
-                print(f"Skipping R2 item due to missing key {e} in JSON item: {item}", file=sys.stderr)
-                continue
-        
-        print(f"\nIdentified {len(r1_files)} unique R1 FASTQ files for pairing.", file=sys.stderr)
-        print(f"Identified {len(r2_files)} unique R2 FASTQ files for pairing.", file=sys.stderr)
-
-        # Create pairs and track statistics
-        pairs: List[Tuple[str, str]] = []
-        unpaired_r1_count = 0
-        orphaned_r2_count = 0
-
-        # Create pairs
-        for base_name, r1_id in sorted(r1_files.items()):
-            if base_name in r2_files:
-                pairs.append((r1_id, r2_files[base_name]))
-            else:
-                print(f"Warning: R1 FASTQ file for base '{base_name}' (ID: {r1_id}) has no corresponding R2 file.", file=sys.stderr)
-                unpaired_r1_count += 1
-
-        # Check for orphaned R2 files
-        for base_name, r2_id in r2_files.items():
-            if base_name not in r1_files:
-                print(f"Warning: R2 FASTQ file for base '{base_name}' (ID: {r2_id}) has no corresponding R1 file.", file=sys.stderr)
-                orphaned_r2_count += 1
-
-        # Print summary
-        print(f"\nFound {len(pairs)} FASTQ R1/R2 pairs", file=sys.stderr)
-        if unpaired_r1_count > 0:
-            print(f"{unpaired_r1_count} R1 FASTQ files did not have a matching R2 file", file=sys.stderr)
-        if orphaned_r2_count > 0:
-            print(f"{orphaned_r2_count} R2 FASTQ files did not have a matching R1 file", file=sys.stderr)
-
-        return pairs
+        return self._pair_dx_files(r1_files_data, "_R1.fastq.gz", r2_files_data, "_R2.fastq.gz",
+                                   base_name_transform=self._fastq_base_name_transform)
 
     def _generate_fastqc_commands(self, fastq_pairs: List[Tuple[str, str]], 
                                   output_file: str, project_id: str) -> None:
         """Generates FastQC analysis commands"""
         # Base command template
         base_command = (
-            "dx run applet-GKXqZV80jy1QxF4yKYB4Y3Kz "
+            f"dx run {self.fastqc_applet_id} " # Use applet from config
             "-ireads={r1_id} "
             "-ireads={r2_id} "
             f"--dest {project_id} -y"
         )
 
         try:
-            with open(output_file, 'w') as f:
+            with open(output_file, 'a') as f: # Append to initialized file
                 for i, (r1_id, r2_id) in enumerate(fastq_pairs, 1):
                     command = base_command.format(r1_id=r1_id, r2_id=r2_id)
                     f.write(f"{command}\n")

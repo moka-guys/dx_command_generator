@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import subprocess
-import json
 import sys
 import os
 from typing import List, Dict, Tuple, Optional
-from dx_command_generator import DXCommandGenerator # Changed import
+from dx_command_generator import DXCommandGenerator
 
-class CoverageCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
+class CoverageCommandGenerator(DXCommandGenerator):
     """Generates coverage analysis commands for BAM/BAI pairs in a DNAnexus project"""
 
     def __init__(self):
         super().__init__()
+        self.chanjo_sambamba_coverage = self.config_values.get('chanjo_sambamba_coverage')
+        self.sambamba_bed = self.config_values.get('sambamba_bed')
 
     @property
     def name(self) -> str:
@@ -23,140 +23,49 @@ class CoverageCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGene
 
     def generate(self) -> None:
         """Main method to generate coverage commands"""
-        if len(sys.argv) != 2:
-            print("\nCoverage Analysis Configuration:")
-            print("------------------------------")
-            project_id = input("Enter DNAnexus project ID (e.g., project-xxxx): ").strip()
-            
-            if not project_id:
-                print("Error: No project ID provided.")
-                return
-            
-            if not project_id.startswith("project-"):
-                print("Error: Project ID must start with 'project-'")
-                return
-        else:
-            project_id = sys.argv[1]
+        project_id = self._get_project_id_from_input("Enter DNAnexus project ID")
+        if not project_id:
+            return
 
-        # Use inherited method
         project_name = self._get_project_name(project_id)
-        if project_name:
-            output_file = f"{project_name}_coverage_cmds.sh"
-            print(f"Using project name '{project_name}' for output filename")
+        if not project_name:
+            project_name = f"{project_id}_unknown_project" # Fallback if name not found
+            print(f"Could not determine project name, using '{project_name}' for output filename")
         else:
-            output_file = f"{project_id}_coverage_commands.sh"
-            print(f"Could not determine project name, using project ID for output filename")
+            print(f"Using project name '{project_name}' for output filename")
+        
+        output_file = f"{project_name.replace(' ', '_')}_coverage_cmds.sh"
 
         print(f"\nStarting coverage command generation for project: {project_id}")
         print(f"Commands will be written to: {output_file}")
 
-        # Find BAM/BAI pairs
+        if not self._initialize_output_file(output_file, project_id, project_name, "Coverage Analysis Commands"):
+            return
+
         bam_bai_pairs = self._find_bam_bai_pairs(project_id)
 
         if not bam_bai_pairs:
             print("No BAM/BAI pairs found. No commands will be generated.")
             return
 
-        # Generate and write commands
         self._generate_coverage_commands(bam_bai_pairs, output_file, project_id)
 
     def _find_bam_bai_pairs(self, project_id: str) -> List[Tuple[str, str]]:
-        """Finds BAM/BAI pairs in the project"""
-        # Glob patterns for BAM and BAI files
+        """Finds BAM/BAI pairs in the project using common utility"""
         bam_glob_pattern = "*markdup.bam"
         bai_glob_pattern = "*markdup.bam.bai"
 
-        # Define dx commands with project specification
-        dx_command_bam_args = [
-            "dx", "find", "data",
-            "--name", bam_glob_pattern,
-            "--class", "file",
-            "--project", project_id,
-            "--json"
-        ]
-        dx_command_bai_args = [
-            "dx", "find", "data",
-            "--name", bai_glob_pattern,
-            "--class", "file",
-            "--project", project_id,
-            "--json"
-        ]
-
-        # Execute dx commands using inherited method
-        bam_files_data = self._run_dx_find_command(dx_command_bam_args, "BAM file query")
-        bai_files_data = self._run_dx_find_command(dx_command_bai_args, "BAI file query")
+        bam_files_data = self._find_dx_files(project_id, bam_glob_pattern)
+        bai_files_data = self._find_dx_files(project_id, bai_glob_pattern)
         
-        # Process found files
-        bams: Dict[str, str] = {}  # {base_filename: bam_file_id}
-        bais: Dict[str, str] = {}  # {base_filename: bai_file_id}
-
-        print(f"\nProcessing {len(bam_files_data)} items from BAM query ('{bam_glob_pattern}').", file=sys.stderr)
-        for item in bam_files_data:
-            try:
-                file_id = item['id']
-                file_name = item['describe']['name']
-                
-                if file_name.endswith(".bam"):
-                    base_name = file_name[:-len(".bam")]
-                    bams[base_name] = file_id
-                else:
-                    print(f"Warning: File '{file_name}' (ID: {file_id}) from BAM query did not end with '.bam'. Skipping.", file=sys.stderr)
-            except KeyError as e:
-                print(f"Skipping BAM item due to missing key {e} in JSON item: {item}", file=sys.stderr)
-                continue
-            
-        print(f"Processing {len(bai_files_data)} items from BAI query ('{bai_glob_pattern}').", file=sys.stderr)
-        for item in bai_files_data:
-            try:
-                file_id = item['id']
-                file_name = item['describe']['name']
-
-                if file_name.endswith(".bam.bai"):
-                    base_name = file_name[:-len(".bam.bai")]
-                    bais[base_name] = file_id
-                else:
-                    print(f"Warning: File '{file_name}' (ID: {file_id}) from BAI query did not end with '.bam.bai'. Skipping.", file=sys.stderr)
-            except KeyError as e:
-                print(f"Skipping BAI item due to missing key {e} in JSON item: {item}", file=sys.stderr)
-                continue
-        
-        print(f"\nIdentified {len(bams)} unique BAM base names for pairing.", file=sys.stderr)
-        print(f"Identified {len(bais)} unique BAI base names for pairing.", file=sys.stderr)
-
-        # Create pairs and track statistics
-        pairs: List[Tuple[str, str]] = []
-        unpaired_bams_count = 0
-        orphaned_bai_count = 0
-
-        # Create pairs
-        for base_name, bam_id in sorted(bams.items()):
-            if base_name in bais:
-                pairs.append((bam_id, bais[base_name]))
-            else:
-                print(f"Warning: BAM file for base '{base_name}' (ID: {bam_id}) has no corresponding BAI file.", file=sys.stderr)
-                unpaired_bams_count += 1
-
-        # Check for orphaned BAI files
-        for base_name, bai_id in bais.items():
-            if base_name not in bams:
-                print(f"Warning: BAI file for base '{base_name}' (ID: {bai_id}) has no corresponding BAM file.", file=sys.stderr)
-                orphaned_bai_count += 1
-
-        # Print summary
-        print(f"\nFound {len(pairs)} BAM/BAI pairs", file=sys.stderr)
-        if unpaired_bams_count > 0:
-            print(f"{unpaired_bams_count} BAM files did not have a matching BAI file", file=sys.stderr)
-        if orphaned_bai_count > 0:
-            print(f"{orphaned_bai_count} BAI files did not have a matching BAM file", file=sys.stderr)
-
-        return pairs
+        return self._pair_dx_files(bam_files_data, ".bam", bai_files_data, ".bam.bai")
 
     def _generate_coverage_commands(self, bam_bai_pairs: List[Tuple[str, str]], 
                                      output_file: str, project_id: str) -> None:
         """Generates coverage analysis commands"""
         # Base command template
         base_command = (
-            "dx run applet-G6vyyf00jy1kPkX9PJ1YkxB1 "
+            f"dx run {self.chanjo_sambamba_coverage} " # Use applet from config
             "-icoverage_level=30 "
             "-ibamfile={bam_id} "
             "-ibam_index={bai_id} "
@@ -166,12 +75,12 @@ class CoverageCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGene
             "-iexclude_duplicate_reads=true "
             "-iexclude_failed_quality_control=true "
             "-imerge_overlapping_mate_reads=true "
-            "-isambamba_bed=project-ByfFPz00jy1fk6PjpZ95F27J:file-Gzj0Pyj0jy1VpJz3768kz8KY "
+            f"-isambamba_bed={self.sambamba_bed} " # Use sambamba_bed from config
             f"--dest {project_id} -y"
         )
 
         try:
-            with open(output_file, 'w') as f:
+            with open(output_file, 'a') as f: # Append to initialized file
                 for i, (bam_id, bai_id) in enumerate(bam_bai_pairs, 1):
                     command = base_command.format(bam_id=bam_id, bai_id=bai_id)
                     f.write(f"{command}\n")
