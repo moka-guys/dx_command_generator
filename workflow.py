@@ -136,21 +136,21 @@ class CP2WorkflowGenerator(CommandGenerator):
     def _get_auth_token(self) -> str:
         """Get authentication token from file or use placeholder"""
         auth_token = ""
-        if os.path.isfile(self.auth_token_path):
+        if os.path.isfile(self.config_values["dnanexus_auth_token_path"]):
             try:
-                with open(self.auth_token_path, 'r') as f:
+                with open(self.config_values["dnanexus_auth_token_path"], 'r') as f:
                     auth_token = f.read().strip()
                 if auth_token:
-                    print(f"Successfully read auth token from {self.auth_token_path}")
+                    print(f"Successfully read auth token from {self.config_values["dnanexus_auth_token_path"]}")
                 else:
-                    print(f"Warning: Auth token file {self.auth_token_path} is empty. Using placeholder.")
+                    print(f"Warning: Auth token file {self.config_values["dnanexus_auth_token_path"]} is empty. Using placeholder.")
                     auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
             except Exception as e:
-                print(f"Error reading auth token from {self.auth_token_path}: {e}. Using placeholder.")
+                print(f"Error reading auth token from {self.config_values["dnanexus_auth_token_path"]}: {e}. Using placeholder.")
                 auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
         else:
             auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-            print(f"Warning: Auth token file not found at {self.auth_token_path}. Using placeholder.")
+            print(f"Warning: Auth token file not found at {self.config_values["dnanexus_auth_token_path"]}. Using placeholder.")
 
         return auth_token
 
@@ -273,7 +273,7 @@ class CP2WorkflowGenerator(CommandGenerator):
             print("  Info: vcf_eval will be skipped.")
 
         # Generate single-line command
-        run_command = f"dx run project-ByfFPz00jy1fk6PjpZ95F27J:workflow-Gzj03g80jy1XbKzZY4yz7JXZ --priority high -y --name \"{sample_name}\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true -istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper -istage-Ff0P73j0GYKX41VkF3j62F9j.sample=\"{sample_name}\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true -istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' -istage-G77VfJ803JGy589J21p7Jkqj.bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{coverage_bed}\" -istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} -istage-GK8G6p803JGx48f74jf16Kjx.prefix=\"{sample_name}\" -istage-GK8G6p803JGx48f74jf16Kjx.panel_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} {polyedge_params} --dest=\"${{PROJECT_ID}}\" --brief --auth \"${{AUTH_TOKEN}}\"\n"
+        run_command = f"dx run project-ByfFPz00jy1fk6PjpZ95F27J:workflow-Gzj03g80jy1XbKzZY4yz7JXZ --priority high -y --name \"{sample_name}\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P5Jj0GYKY717pKX3vX8Z3.reads=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R1.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.reads2_fastqgzs=\"${{PROJECT_ID}}:/${{PROJECT_NAME}}/Samples/{sample_name}_R2.fastq.gz\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_metrics=true -istage-Ff0P73j0GYKX41VkF3j62F9j.germline_algo=Haplotyper -istage-Ff0P73j0GYKX41VkF3j62F9j.sample=\"{sample_name}\" -istage-Ff0P73j0GYKX41VkF3j62F9j.output_gvcf=true -istage-Ff0P73j0GYKX41VkF3j62F9j.gvcftyper_algo_options='--genotype_model multinomial' -istage-G77VfJ803JGy589J21p7Jkqj.bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.Capture_panel=Hybridisation -istage-Ff0P5pQ0GYKVBB0g1FG27BV8.vendor_exome_bedfile=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.coverage_level=30 -istage-Ff0P82Q0GYKQ4j8b4gXzjqxX.sambamba_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{coverage_bed}\" -istage-GK8G6p803JGx48f74jf16Kjx.skip={cnv_stage_skip} -istage-GK8G6p803JGx48f74jf16Kjx.prefix=\"{sample_name}\" -istage-GK8G6p803JGx48f74jf16Kjx.panel_bed=\"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{variant_bed}\" -istage-GK8G6k003JGx48f74jf16Kjv.skip={prs_skip} {polyedge_params} --dest=\"${{PROJECT_ID}}\" --brief --auth \"${{AUTH_TOKEN}}\" -y\n"
 
         try:
             with open(output_file, 'a') as f:
