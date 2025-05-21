@@ -6,7 +6,7 @@ import sys
 import os
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
-from workflow import CommandGenerator  # Import the base class
+from base import CommandGenerator
 
 class PicardCommandGenerator(CommandGenerator):
     """Generates Picard analysis commands for BAM files in a DNAnexus project"""

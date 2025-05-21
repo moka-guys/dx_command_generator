@@ -5,7 +5,7 @@ import json
 import sys
 import os
 from typing import Dict, List, Optional, Tuple
-from workflow import CommandGenerator  # Import the base class
+from base import CommandGenerator  # Import the base class
 
 class FastQCCommandGenerator(CommandGenerator):
     """Generates FastQC analysis commands for FASTQ pairs in a DNAnexus project"""

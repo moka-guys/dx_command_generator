@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from workflow import CommandGenerator
+from base import CommandGenerator
 import subprocess
 import re
 from typing import Optional, Set

@@ -8,7 +8,7 @@ import sys
 import importlib.util
 from datetime import datetime
 from typing import List, Dict, Set, Optional
-from workflow import CommandGenerator  # Import the base class
+from base import CommandGenerator
 
 class CNVCommandGenerator(CommandGenerator):
     """Generates CNV analysis commands for samples in a DNAnexus project"""

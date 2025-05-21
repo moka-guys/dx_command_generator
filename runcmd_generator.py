@@ -3,7 +3,8 @@
 import sys
 import yaml
 from typing import List
-from workflow import CommandGenerator, CP2WorkflowGenerator
+from base import CommandGenerator
+from workflow import CP2WorkflowGenerator
 from cov import CoverageCommandGenerator
 from picard import PicardCommandGenerator
 from fqc import FastQCCommandGenerator

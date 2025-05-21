@@ -5,7 +5,7 @@ import json
 import sys
 import os
 from typing import List, Dict, Tuple, Optional
-from workflow import CommandGenerator  # Import the base class
+from base import CommandGenerator
 
 class CoverageCommandGenerator(CommandGenerator):
     """Generates coverage analysis commands for BAM/BAI pairs in a DNAnexus project"""
