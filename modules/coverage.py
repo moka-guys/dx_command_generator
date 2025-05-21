@@ -3,7 +3,7 @@
 import sys
 import os
 from typing import List, Dict, Tuple, Optional
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 
 class CoverageCommandGenerator(DXCommandGenerator):
     """Generates coverage analysis commands for BAM/BAI pairs in a DNAnexus project"""

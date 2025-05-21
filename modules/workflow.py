@@ -7,7 +7,7 @@ import sys
 import tempfile
 from datetime import datetime
 from typing import List, Tuple, Optional, Any
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 
 class CP2WorkflowGenerator(DXCommandGenerator):
     """Generates commands for CP2 workflow"""

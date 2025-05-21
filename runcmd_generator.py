@@ -3,13 +3,13 @@
 import sys
 import yaml
 from typing import List
-from base import CommandGenerator
-from workflow import CP2WorkflowGenerator
-from cov import CoverageCommandGenerator
-from picard import PicardCommandGenerator
-from fqc import FastQCCommandGenerator
-from readcount import ReadcountCommandGenerator
-from cnv import CNVCommandGenerator
+from modules.base import CommandGenerator
+from modules.workflow import CP2WorkflowGenerator
+from modules.coverage import CoverageCommandGenerator
+from modules.picard import PicardCommandGenerator
+from modules.fqc import FastQCCommandGenerator
+from modules.readcount import ReadcountCommandGenerator
+from modules.cnv import CNVCommandGenerator
 from config import Config # Import Config to get version
 
 def main():

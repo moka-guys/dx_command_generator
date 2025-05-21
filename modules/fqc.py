@@ -3,7 +3,7 @@
 import sys
 import os
 from typing import Dict, List, Optional, Tuple
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 
 class FastQCCommandGenerator(DXCommandGenerator):
     """Generates FastQC analysis commands for FASTQ pairs in a DNAnexus project"""

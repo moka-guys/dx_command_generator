@@ -8,7 +8,7 @@ import sys
 import importlib.util
 from datetime import datetime
 from typing import List, Dict, Set, Optional
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 
 class CNVCommandGenerator(DXCommandGenerator):
     """Generates CNV analysis commands for samples in a DNAnexus project"""

@@ -4,8 +4,8 @@ import os
 import sys
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Set, Any
-from base import CommandGenerator
-from dx_utils import DXUtils
+from modules.base import CommandGenerator
+from modules.dx_utils import DXUtils
 
 class DXCommandGenerator(CommandGenerator):
     """

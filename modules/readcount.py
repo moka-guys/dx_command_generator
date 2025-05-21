@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 import subprocess
 import re
 from typing import Optional, Set

@@ -4,7 +4,7 @@ import sys
 import os
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
-from dx_command_generator import DXCommandGenerator
+from modules.dx_command_generator import DXCommandGenerator
 
 class PicardCommandGenerator(DXCommandGenerator):
     """Generates Picard analysis commands for BAM files in a DNAnexus project"""
