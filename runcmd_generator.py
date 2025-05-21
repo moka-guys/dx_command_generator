@@ -3,13 +3,13 @@
 import sys
 import yaml
 from typing import List
-from base import CommandGenerator
+from base import CommandGenerator # Keep this for the abstract base
 from workflow import CP2WorkflowGenerator
 from cov import CoverageCommandGenerator
 from picard import PicardCommandGenerator
 from fqc import FastQCCommandGenerator
-from readcount import ReadcountCommandGenerator 
-from cnv import CNVCommandGenerator 
+from readcount import ReadcountCommandGenerator
+from cnv import CNVCommandGenerator
 
 def main():
     """Main function to select and run a command generator"""
@@ -26,10 +26,10 @@ def main():
     # List of available command generators
     generators: List[CommandGenerator] = [
         CP2WorkflowGenerator(),
-        CoverageCommandGenerator(), 
-        PicardCommandGenerator(), 
-        FastQCCommandGenerator(), 
-        ReadcountCommandGenerator(), 
+        CoverageCommandGenerator(),
+        PicardCommandGenerator(),
+        FastQCCommandGenerator(),
+        ReadcountCommandGenerator(),
         CNVCommandGenerator(),
     ]
 
@@ -44,7 +44,7 @@ def main():
     print("\nAvailable command generation workflows:")
     for i, generator in enumerate(generators, 1):
         print(f"\n  {i}. {generator.name}")
-        print(f"     Description: {generator.description}")
+        print(f"      Description: {generator.description}")
 
     while True:
         try:

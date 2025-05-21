@@ -5,9 +5,9 @@ import json
 import sys
 import os
 from typing import List, Dict, Tuple, Optional
-from base import CommandGenerator
+from dx_command_generator import DXCommandGenerator # Changed import
 
-class CoverageCommandGenerator(CommandGenerator):
+class CoverageCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
     """Generates coverage analysis commands for BAM/BAI pairs in a DNAnexus project"""
 
     def __init__(self):
@@ -38,7 +38,7 @@ class CoverageCommandGenerator(CommandGenerator):
         else:
             project_id = sys.argv[1]
 
-        # Get project name for output filename
+        # Use inherited method
         project_name = self._get_project_name(project_id)
         if project_name:
             output_file = f"{project_name}_coverage_cmds.sh"
@@ -59,38 +59,6 @@ class CoverageCommandGenerator(CommandGenerator):
 
         # Generate and write commands
         self._generate_coverage_commands(bam_bai_pairs, output_file, project_id)
-
-    def _run_dx_find_command(self, dx_command_args: List[str], command_description: str) -> List[Dict]:
-        """Helper function to run a dx find data command"""
-        print(f"Executing: {' '.join(dx_command_args)}", file=sys.stderr)
-        try:
-            process = subprocess.run(dx_command_args, capture_output=True, text=True, check=False)
-            
-            if process.returncode != 0:
-                print(f"Error executing {command_description} (return code {process.returncode}):", file=sys.stderr)
-                print(f"Command: {' '.join(dx_command_args)}", file=sys.stderr)
-                if process.stderr:
-                    print(f"dx stderr:\n{process.stderr}", file=sys.stderr)
-                if process.stdout and process.stdout.strip():
-                    print(f"dx stdout (if error message present):\n{process.stdout}", file=sys.stderr)
-                sys.exit(1)
-            
-            if not process.stdout.strip() and process.returncode == 0:
-                print(f"No files found by {command_description}. Proceeding.", file=sys.stderr)
-                return []
-
-            return json.loads(process.stdout)
-
-        except json.JSONDecodeError as e:
-            print(f"Error parsing JSON output from {command_description}: {e}", file=sys.stderr)
-            print(f"Raw output that caused error: >>>\n{process.stdout}\n<<<", file=sys.stderr)
-            sys.exit(1)
-        except FileNotFoundError:
-            print(f"Error: dx command-line tool not found. Please ensure it's installed and in your PATH.", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            print(f"An unexpected error occurred while running {command_description}: {e}", file=sys.stderr)
-            sys.exit(1)
 
     def _find_bam_bai_pairs(self, project_id: str) -> List[Tuple[str, str]]:
         """Finds BAM/BAI pairs in the project"""
@@ -114,7 +82,7 @@ class CoverageCommandGenerator(CommandGenerator):
             "--json"
         ]
 
-        # Execute dx commands
+        # Execute dx commands using inherited method
         bam_files_data = self._run_dx_find_command(dx_command_bam_args, "BAM file query")
         bai_files_data = self._run_dx_find_command(dx_command_bai_args, "BAI file query")
         
@@ -184,7 +152,7 @@ class CoverageCommandGenerator(CommandGenerator):
         return pairs
 
     def _generate_coverage_commands(self, bam_bai_pairs: List[Tuple[str, str]], 
-                                  output_file: str, project_id: str) -> None:
+                                     output_file: str, project_id: str) -> None:
         """Generates coverage analysis commands"""
         # Base command template
         base_command = (
@@ -215,13 +183,6 @@ class CoverageCommandGenerator(CommandGenerator):
             print(f"Error writing to output file {output_file}: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _get_project_name(self, project_id: str) -> Optional[str]:
-        """Get project name from project ID"""
-        try:
-            dx_describe = subprocess.run(["dx", "describe", project_id, "--json"], 
-                                       capture_output=True, text=True, check=True)
-            project_info = json.loads(dx_describe.stdout)
-            return project_info.get("name")
-        except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-            print(f"Warning: Could not get project name from project ID: {e}", file=sys.stderr)
-            return None 
+if __name__ == "__main__":
+    generator = CoverageCommandGenerator()
+    generator.generate()

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-from base import CommandGenerator
+from dx_command_generator import DXCommandGenerator # Changed import
 import subprocess
 import re
 from typing import Optional, Set
 import os
 from datetime import datetime
 
-class ReadcountCommandGenerator(CommandGenerator):
+class ReadcountCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
     """Generates readcount command for exome depth analysis"""
 
     def __init__(self):
@@ -20,100 +20,6 @@ class ReadcountCommandGenerator(CommandGenerator):
     @property
     def description(self) -> str:
         return "Generate DNAnexus readcount command for exome depth analysis from RunManifest.csv"
-
-    def _get_auth_token(self) -> str:
-        """Get authentication token from file or use placeholder"""
-        auth_token = ""
-        try:
-            with open(self.config_values['dnanexus_auth_token_path'], 'r') as f:
-                auth_token = f.read().strip()
-            if auth_token:
-                print(f"Successfully read auth token from {self.config_values['dnanexus_auth_token_path']}")
-            else:
-                print(f"Warning: Auth token file {self.config_values['dnanexus_auth_token_path']} is empty. Using placeholder.")
-                auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-        except Exception as e:
-            print(f"Error reading auth token from {self.config_values['dnanexus_auth_token_path']}: {e}. Using placeholder.")
-            auth_token = "{AUTH_TOKEN_PLACEHOLDER}"
-        return auth_token
-
-    def _detect_project_info(self, dx_file_id: str) -> tuple[str, str]:
-        """Detect project information from DNAnexus file ID"""
-        project_id = ""
-        project_name = ""
-
-        print(f"Extracting project information from DNAnexus file {dx_file_id}...")
-
-        try:
-            dx_describe_cmd = ["dx", "describe", dx_file_id]
-            print(f"Executing: {' '.join(dx_describe_cmd)}")
-            dx_describe_output = subprocess.check_output(dx_describe_cmd, text=True, stderr=subprocess.PIPE)
-
-            project_id_match = re.search(r"Project\s+(project-[a-zA-Z0-9]+)", dx_describe_output)
-            if project_id_match:
-                project_id = project_id_match.group(1)
-                print(f"Detected Project ID: {project_id}")
-            else:
-                print("Warning: Could not detect Project ID from dx describe output.")
-
-            folder_path_match = re.search(r"Folder\s+([^\n]+)", dx_describe_output)
-            if folder_path_match:
-                folder_path = folder_path_match.group(1).strip()
-                project_name_candidate = folder_path.lstrip('/').split('/')[0]
-                if project_name_candidate:
-                    project_name = project_name_candidate
-                    print(f"Detected Project Name (from folder path): {project_name}")
-                else:
-                    print("Warning: Folder path was '/' or empty, could not derive project name from folder.")
-            else:
-                print("Warning: Could not detect folder path from dx describe output.")
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to execute 'dx describe {dx_file_id}'. Return code: {e.returncode}")
-            print(f"Command output: {e.output}")
-            print(f"Command error: {e.stderr}")
-            print("Please check your DNAnexus login status and if the file ID is correct.")
-        except FileNotFoundError:
-            print("Error: 'dx' command not found. Please ensure the DNAnexus toolkit is installed and in your PATH.")
-        
-        return project_id, project_name
-
-    def _extract_pan_numbers(self, dx_file_id: str) -> Optional[Set[str]]:
-        """Extract unique PAN numbers from sample names in the manifest file"""
-        print(f"Extracting PAN numbers from samples in DNAnexus file: {dx_file_id}")
-        pan_numbers = set()
-
-        try:
-            dx_cat_cmd = ["dx", "cat", dx_file_id]
-            print(f"Executing: {' '.join(dx_cat_cmd)}")
-            dx_cat_output = subprocess.check_output(dx_cat_cmd, text=True, stderr=subprocess.PIPE)
-
-            for line in dx_cat_output.splitlines():
-                line = line.strip()
-                # Look for Pan<digits> in the line
-                pan_match = re.search(r'Pan\d+', line, re.IGNORECASE)
-                if pan_match:
-                    pan_numbers.add(pan_match.group(0))
-
-            if not pan_numbers:
-                print(f"Warning: No PAN numbers found in the DNAnexus file '{dx_file_id}'.")
-                return None
-
-            print(f"Found {len(pan_numbers)} unique PAN numbers: {', '.join(sorted(pan_numbers))}")
-            return pan_numbers
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to execute 'dx cat {dx_file_id}'. Return code: {e.returncode}")
-            print(f"Command output: {e.output}")
-            print(f"Command error: {e.stderr}")
-            print("Please check your DNAnexus login status and if the file ID is correct.")
-            return None
-        except FileNotFoundError:
-            print("Error: 'dx' command not found. Please ensure the DNAnexus toolkit is installed and in your PATH.")
-            return None
-        except Exception as e:
-            print(f"An unexpected error occurred while extracting PAN numbers: {e}")
-            return None
 
     def generate(self) -> None:
         """Generate the readcount command"""
@@ -132,7 +38,7 @@ class ReadcountCommandGenerator(CommandGenerator):
                 print("Error: Invalid DNAnexus file ID format. Must start with 'file-'")
                 return
 
-            # Get project information
+            # Use inherited method
             project_id, project_name = self._detect_project_info(dxfile)
             if not project_id:
                 project_id = "{PROJECT_ID_PLACEHOLDER}"
@@ -141,13 +47,13 @@ class ReadcountCommandGenerator(CommandGenerator):
                 project_name = "UNKNOWN_PROJECT"
                 print(f"Using placeholder for Project Name: {project_name}")
 
-            # Get PAN numbers
+            # Use inherited method
             pan_numbers = self._extract_pan_numbers(dxfile)
             if not pan_numbers:
                 print("Error: Could not extract PAN numbers from the manifest file.")
                 return
 
-            # Get auth token
+            # Use inherited method
             auth_token = self._get_auth_token()
 
             # Generate the command
@@ -174,4 +80,4 @@ class ReadcountCommandGenerator(CommandGenerator):
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
             print("Exiting command generation.")
-            return 
+            return

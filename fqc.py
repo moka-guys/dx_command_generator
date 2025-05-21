@@ -5,9 +5,9 @@ import json
 import sys
 import os
 from typing import Dict, List, Optional, Tuple
-from base import CommandGenerator  # Import the base class
+from dx_command_generator import DXCommandGenerator # Changed import
 
-class FastQCCommandGenerator(CommandGenerator):
+class FastQCCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
     """Generates FastQC analysis commands for FASTQ pairs in a DNAnexus project"""
 
     def __init__(self):
@@ -38,7 +38,7 @@ class FastQCCommandGenerator(CommandGenerator):
         else:
             project_id = sys.argv[1]
 
-        # Get project name for output filename
+        # Use inherited method
         project_name = self._get_project_name(project_id)
         if project_name:
             output_file = f"{project_name}_fastqc_cmds.sh"
@@ -59,38 +59,6 @@ class FastQCCommandGenerator(CommandGenerator):
 
         # Generate and write commands
         self._generate_fastqc_commands(fastq_pairs, output_file, project_id)
-
-    def _run_dx_find_command(self, dx_command_args: List[str], command_description: str) -> List[Dict]:
-        """Helper function to run a dx find data command"""
-        print(f"Executing: {' '.join(dx_command_args)}", file=sys.stderr)
-        try:
-            process = subprocess.run(dx_command_args, capture_output=True, text=True, check=False)
-            
-            if process.returncode != 0:
-                print(f"Error executing {command_description} (return code {process.returncode}):", file=sys.stderr)
-                print(f"Command: {' '.join(dx_command_args)}", file=sys.stderr)
-                if process.stderr:
-                    print(f"dx stderr:\n{process.stderr}", file=sys.stderr)
-                if process.stdout and process.stdout.strip():
-                    print(f"dx stdout (if error message present):\n{process.stdout}", file=sys.stderr)
-                sys.exit(1)
-            
-            if not process.stdout.strip() and process.returncode == 0:
-                print(f"No files found by {command_description}. Proceeding.", file=sys.stderr)
-                return []
-
-            return json.loads(process.stdout)
-
-        except json.JSONDecodeError as e:
-            print(f"Error parsing JSON output from {command_description}: {e}", file=sys.stderr)
-            print(f"Raw output that caused error: >>>\n{process.stdout}\n<<<", file=sys.stderr)
-            sys.exit(1)
-        except FileNotFoundError:
-            print(f"Error: dx command-line tool not found. Please ensure it's installed and in your PATH.", file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            print(f"An unexpected error occurred while running {command_description}: {e}", file=sys.stderr)
-            sys.exit(1)
 
     def _find_fastq_pairs(self, project_id: str) -> List[Tuple[str, str]]:
         """Finds R1/R2 FASTQ pairs in the project"""
@@ -114,7 +82,7 @@ class FastQCCommandGenerator(CommandGenerator):
             "--json"
         ]
 
-        # Execute dx commands
+        # Execute dx commands using inherited method
         r1_files_data = self._run_dx_find_command(dx_command_r1_args, "R1 FASTQ file query")
         r2_files_data = self._run_dx_find_command(dx_command_r2_args, "R2 FASTQ file query")
         
@@ -134,7 +102,7 @@ class FastQCCommandGenerator(CommandGenerator):
                     base_name = base_name[:-9]
                 r1_files[base_name] = file_id
             except KeyError as e:
-                print(f"Skipping R1 item due to missing key {e} in JSON item: {item}", file=sys.stderr)
+                print(f"Skipping R1 item due to missing key {e} in JSON item: {sys.stderr}")
                 continue
             
         print(f"Processing {len(r2_files_data)} items from R2 FASTQ query ('{r2_glob_pattern}').", file=sys.stderr)
@@ -184,7 +152,7 @@ class FastQCCommandGenerator(CommandGenerator):
         return pairs
 
     def _generate_fastqc_commands(self, fastq_pairs: List[Tuple[str, str]], 
-                                output_file: str, project_id: str) -> None:
+                                  output_file: str, project_id: str) -> None:
         """Generates FastQC analysis commands"""
         # Base command template
         base_command = (
@@ -207,13 +175,6 @@ class FastQCCommandGenerator(CommandGenerator):
             print(f"Error writing to output file {output_file}: {e}", file=sys.stderr)
             sys.exit(1)
 
-    def _get_project_name(self, project_id: str) -> Optional[str]:
-        """Get project name from project ID"""
-        try:
-            dx_describe = subprocess.run(["dx", "describe", project_id, "--json"], 
-                                       capture_output=True, text=True, check=True)
-            project_info = json.loads(dx_describe.stdout)
-            return project_info.get("name")
-        except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-            print(f"Warning: Could not get project name from project ID: {e}", file=sys.stderr)
-            return None 
+if __name__ == "__main__":
+    generator = FastQCCommandGenerator()
+    generator.generate()

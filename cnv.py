@@ -8,9 +8,9 @@ import sys
 import importlib.util
 from datetime import datetime
 from typing import List, Dict, Set, Optional
-from base import CommandGenerator
+from dx_command_generator import DXCommandGenerator # Changed import
 
-class CNVCommandGenerator(CommandGenerator):
+class CNVCommandGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
     """Generates CNV analysis commands for samples in a DNAnexus project"""
 
     def __init__(self):
@@ -36,7 +36,7 @@ class CNVCommandGenerator(CommandGenerator):
                 return module.PanelConfig.PANEL_DICT
             else:
                 raise AttributeError("PanelConfig class not found in panel_config.py")
-            
+                
         except Exception as e:
             print(f"Warning: Failed to load panel configuration: {e}")
             print("Falling back to default configuration")
@@ -48,7 +48,7 @@ class CNVCommandGenerator(CommandGenerator):
             panel_info = self.panel_config.get(pan_number)
             if panel_info is None:
                 raise ValueError(f"Pan number {pan_number} not found in panel configuration")
-            
+                
             cnv_bedfile = panel_info.get('ed_cnvcalling_bedfile')
             if cnv_bedfile:
                 return f"project-ByfFPz00jy1fk6PjpZ95F27J:/Data/BED/{cnv_bedfile}_CNV.bed"
@@ -85,7 +85,7 @@ class CNVCommandGenerator(CommandGenerator):
                 print("Error: Invalid DNAnexus file ID format. Must start with 'file-'")
                 return
 
-            # Get project information from the manifest file
+            # Use inherited method
             project_id, project_name = self._detect_project_info(dxfile)
             
             if not project_id:
@@ -100,7 +100,7 @@ class CNVCommandGenerator(CommandGenerator):
             print(f"  Project ID: {project_id}")
             print(f"  Project Name: {project_name}")
 
-            # Extract Pan numbers from manifest
+            # Use inherited method
             pan_numbers = self._extract_pan_numbers(dxfile)
             if not pan_numbers:
                 print("Error: No Pan numbers found in the manifest file.")
@@ -135,63 +135,6 @@ class CNVCommandGenerator(CommandGenerator):
             print("\nOperation interrupted. Exiting.")
             return
 
-    def _detect_project_info(self, dx_file_id: str) -> tuple[str, str]:
-        """Detect project information from DNAnexus file ID"""
-        project_id = ""
-        project_name = ""
-
-        print(f"Extracting project information from DNAnexus file {dx_file_id}...")
-
-        try:
-            dx_describe_cmd = ["dx", "describe", dx_file_id]
-            dx_describe_output = subprocess.check_output(dx_describe_cmd, text=True, stderr=subprocess.PIPE)
-
-            project_id_match = re.search(r"Project\s+(project-[a-zA-Z0-9]+)", dx_describe_output)
-            if project_id_match:
-                project_id = project_id_match.group(1)
-
-            folder_path_match = re.search(r"Folder\s+([^\n]+)", dx_describe_output)
-            if folder_path_match:
-                folder_path = folder_path_match.group(1).strip()
-                project_name_candidate = folder_path.lstrip('/').split('/')[0]
-                if project_name_candidate:
-                    project_name = project_name_candidate
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing 'dx describe {dx_file_id}'. Return code: {e.returncode}")
-            print(f"Command output: {e.output}")
-            print(f"Command error: {e.stderr}")
-        except Exception as e:
-            print(f"An unexpected error occurred while detecting project info: {e}")
-
-        return project_id, project_name
-
-    def _extract_pan_numbers(self, dx_file_id: str) -> Set[str]:
-        """Extract unique Pan numbers from RunManifest.csv"""
-        pan_numbers = set()
-        
-        try:
-            # Use dx cat to read the manifest file
-            dx_cat_cmd = ["dx", "cat", dx_file_id]
-            manifest_content = subprocess.check_output(dx_cat_cmd, text=True, stderr=subprocess.PIPE)
-
-            # Process each line
-            for line in manifest_content.splitlines():
-                line = line.strip()
-                if line:  # Skip empty lines
-                    # Look for Pan<number> pattern in the line
-                    pan_match = re.search(r'Pan\d+', line, re.IGNORECASE)
-                    if pan_match:
-                        pan_numbers.add(pan_match.group(0))
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error reading manifest file: {e}")
-            print(f"Command error output: {e.stderr}")
-        except Exception as e:
-            print(f"An unexpected error occurred while extracting Pan numbers: {e}")
-
-        return pan_numbers
-
     def _find_readcount_file(self, project_id: str) -> Optional[str]:
         """Find the .RData readcount file in the project"""
         try:
@@ -224,7 +167,7 @@ class CNVCommandGenerator(CommandGenerator):
             return None
 
     def _generate_cnv_commands(self, pan_numbers: Set[str], readcount_file: str,
-                             project_id: str, project_name: str, output_file: str) -> None:
+                                 project_id: str, project_name: str, output_file: str) -> None:
         """Generate CNV analysis commands for each Pan number"""
         try:
             with open(output_file, 'w') as f:
@@ -283,4 +226,4 @@ fi
 
 if __name__ == "__main__":
     generator = CNVCommandGenerator()
-    generator.generate() 
+    generator.generate()

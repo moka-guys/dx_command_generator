@@ -6,12 +6,10 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime
-from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional, Any
-from base import CommandGenerator
+from dx_command_generator import DXCommandGenerator # Changed import
 
-
-class CP2WorkflowGenerator(CommandGenerator):
+class CP2WorkflowGenerator(DXCommandGenerator): # Inherit from DXCommandGenerator
     """Generates commands for CP2 workflow"""
 
     def __init__(self):
@@ -52,7 +50,7 @@ class CP2WorkflowGenerator(CommandGenerator):
                 def __init__(self, **kwargs):
                     self.__dict__.update(kwargs)
             
-            # Detect project info immediately
+            # Use inherited method
             project_id, project_name = self._detect_project_info(dxfile)
             
             if not project_id:
@@ -85,67 +83,6 @@ class CP2WorkflowGenerator(CommandGenerator):
         except KeyboardInterrupt:
             print("\nConfiguration interrupted. Exiting workflow generation.")
             return None
-
-    def _detect_project_info(self, dx_file_id: str) -> Tuple[str, str]:
-        """Detect project information from DNAnexus file ID"""
-        project_id = ""
-        project_name = ""
-
-        print(f"Extracting project information from DNAnexus file {dx_file_id}...")
-
-        try:
-            dx_describe_cmd = ["dx", "describe", dx_file_id]
-            print(f"Executing: {' '.join(dx_describe_cmd)}")
-            dx_describe_output = subprocess.check_output(dx_describe_cmd, text=True, stderr=subprocess.PIPE)
-
-            project_id_match = re.search(r"Project\s+(project-[a-zA-Z0-9]+)", dx_describe_output)
-            if project_id_match:
-                project_id = project_id_match.group(1)
-                print(f"Detected Project ID: {project_id}")
-            else:
-                print("Warning: Could not detect Project ID from dx describe output.")
-
-            folder_path_match = re.search(r"Folder\s+([^\n]+)", dx_describe_output)
-            if folder_path_match:
-                folder_path = folder_path_match.group(1).strip()
-                # Remove the leading / and extract the project name (first part of the path)
-                project_name_candidate = folder_path.lstrip('/').split('/')[0]
-                if project_name_candidate:
-                    project_name = project_name_candidate
-                    print(f"Detected Project Name (from folder path): {project_name}")
-                else:
-                    print("Warning: Folder path was '/' or empty, could not derive project name from folder.")
-            else:
-                print("Warning: Could not detect folder path from dx describe output.")
-
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to execute 'dx describe {dx_file_id}'. Return code: {e.returncode}")
-            print(f"Command output: {e.output}")
-            print(f"Command error: {e.stderr}")
-            print("Please check your DNAnexus login status and if the file ID is correct.")
-        except FileNotFoundError:
-            print("Error: 'dx' command not found. Please ensure the DNAnexus toolkit is installed and in your PATH.")
-        
-        return project_id, project_name
-
-    def _get_auth_token(self) -> str:
-        """Get authentication token from file"""
-        if os.path.isfile(self.config_values["dnanexus_auth_token_path"]):
-            try:
-                with open(self.config_values["dnanexus_auth_token_path"], 'r') as f:
-                    auth_token = f.read().strip()
-                if auth_token:
-                    print(f"Successfully read auth token from {self.config_values["dnanexus_auth_token_path"]}")
-                    return auth_token
-                else:
-                    print(f"Error: Auth token file {self.config_values["dnanexus_auth_token_path"]} is empty.")
-            except Exception as e:
-                print(f"Error reading auth token from {self.config_values["dnanexus_auth_token_path"]}: {e}")
-        else:
-            print(f"Error: Auth token file not found at {self.config_values["dnanexus_auth_token_path"]}")
-        
-        print("A valid DNAnexus authentication token is required to proceed.")
-        return ""
 
     def _extract_samples_from_dx_file(self, dx_file_id: str) -> Optional[str]:
         """Extract sample names from a DNAnexus file, returns path to temporary file"""
@@ -203,7 +140,7 @@ class CP2WorkflowGenerator(CommandGenerator):
             return None
 
     def _process_sample(self, sample_name: str, output_file: str, failures_csv: str,
-                          project_id_val: str, project_name_val: str) -> bool:
+                         project_id_val: str, project_name_val: str) -> bool:
         """Process a single sample and generate run command"""
         print(f"\nProcessing sample: {sample_name}")
 
@@ -284,7 +221,7 @@ class CP2WorkflowGenerator(CommandGenerator):
         print(f"    - PRS Skip: {prs_skip}")
         print(f"    - vcf_eval Skip: {cnv_stage_skip}")
         if polyedge_params:
-             print(f"    - PolyEdge Params: Enabled")
+            print(f"    - PolyEdge Params: Enabled")
         return True
 
     def _process_workflow(self, args: Any) -> None:
@@ -307,7 +244,7 @@ class CP2WorkflowGenerator(CommandGenerator):
         output_filename = args.output
         print(f"Using output script filename: {output_filename}")
 
-        # Get Auth Token
+        # Get Auth Token (using inherited method)
         auth_token = self._get_auth_token()
 
         # Initialize Output Files
@@ -381,7 +318,6 @@ class CP2WorkflowGenerator(CommandGenerator):
         if temp_file_created_path and os.path.exists(temp_file_created_path):
             try:
                 os.unlink(temp_file_created_path)
-                print(f"Cleaned up temporary sample file: {temp_file_created_path}")
             except OSError as e:
                 print(f"Warning: Could not delete temporary file {temp_file_created_path}: {e}")
 
@@ -394,8 +330,8 @@ class CP2WorkflowGenerator(CommandGenerator):
             print(f"  Failures log: {os.path.abspath(failures_csv_file)}")
         else:
             if os.path.exists(failures_csv_file):
-                 try: os.unlink(failures_csv_file)
-                 except: pass
+                try: os.unlink(failures_csv_file)
+                except: pass
 
         print(f"\nTo execute the generated DNAnexus commands, run:\n  bash {os.path.abspath(output_filename)}")
         print("==============================================")
