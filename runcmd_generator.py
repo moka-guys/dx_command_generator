@@ -8,8 +8,7 @@ from modules.coverage import CoverageCommandGenerator
 from modules.picard import PicardCommandGenerator
 from modules.fqc import FastQCCommandGenerator
 from modules.readcount import ReadcountCommandGenerator
-from modules.cnv import CNVCommandGenerator
-from modules.cnv import CNVReanalysisCommandGenerator 
+from modules.cnv import CNVCommandGenerator, CNVReanalysisCommandGenerator
 from config import Config 
 
 def main():
