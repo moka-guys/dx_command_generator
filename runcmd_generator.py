@@ -9,7 +9,8 @@ from modules.picard import PicardCommandGenerator
 from modules.fqc import FastQCCommandGenerator
 from modules.readcount import ReadcountCommandGenerator
 from modules.cnv import CNVCommandGenerator
-from config import Config
+from modules.cnv import CNVReanalysisCommandGenerator 
+from config import Config 
 
 def main():
     """Main function to select and run a command generator"""
@@ -26,6 +27,7 @@ def main():
         FastQCCommandGenerator(),
         ReadcountCommandGenerator(),
         CNVCommandGenerator(),
+        CNVReanalysisCommandGenerator(), 
     ]
 
     print("==============================================")

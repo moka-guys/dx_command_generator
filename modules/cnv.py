@@ -51,18 +51,19 @@ class CNVCommandGenerator(DXCommandGenerator):
         try:
             panel_info = self.panel_config.get(pan_number)
             if panel_info is None:
-                raise ValueError(f"Pan number {pan_number} not found in panel configuration")
+                print(f"Warning: Pan number {pan_number} not found in panel configuration. No BED file can be retrieved.", file=sys.stderr)
+                return None
                 
             cnv_bedfile = panel_info.get('ed_cnvcalling_bedfile')
             if cnv_bedfile:
                 # Use common_data_project from config
                 return f"{self.common_data_project}:/Data/BED/{cnv_bedfile}_CNV.bed"
             else:
-                print(f"Note: Pan number {pan_number} found but has no CNV bedfile configured - skipping CNV analysis")
+                print(f"Note: Pan number {pan_number} found but has no CNV bedfile configured - skipping CNV analysis", file=sys.stderr)
                 return None
                 
         except Exception as e:
-            print(f"Error: Failed to process {pan_number}: {e}")
+            print(f"Error: Failed to process {pan_number}: {e}", file=sys.stderr)
             raise
 
     @property
@@ -146,7 +147,7 @@ class CNVCommandGenerator(DXCommandGenerator):
             return None
             
         if len(readcount_files_data) > 1:
-            print(f"Warning: Multiple .RData files found. Using the first one: {readcount_files_data[0]['id']}")
+            print(f"Warning: Multiple .RData files found. Using the first one: {readcount_files_data[0]['id']}", file=sys.stderr)
             
         return readcount_files_data[0]['id']
 
@@ -155,11 +156,7 @@ class CNVCommandGenerator(DXCommandGenerator):
         """Generate CNV analysis commands for each Pan number"""
         try:
             with open(output_file, 'a') as f: # Append to initialized file
-                # Track for dependency list
-                f.write("# Initialize dependency tracking\n")
-                f.write("DEPENDS_LIST=\"\"\n\n")
-
-                # Generate command for each Pan number
+                # Reverted to original simpler command generation for CNVCommandGenerator
                 for pan_number in sorted(pan_numbers):
                     # Get the CNV bedfile - skip this pan if no bedfile configured
                     cnv_bedfile = self._get_cnv_bedfile(pan_number)
@@ -167,7 +164,7 @@ class CNVCommandGenerator(DXCommandGenerator):
                         continue
                         
                     command = (
-                        f"JOB_ID_CNV_{pan_number}=$(dx run {self.cnv_applet_id} " # Use applet from config
+                        f"dx run {self.cnv_applet_id} " # Use applet from config
                         f"--priority high -y "
                         f"--name ED_CNVcalling-{pan_number} "
                         f"-ireadcount_file={readcount_file} "
@@ -177,20 +174,9 @@ class CNVCommandGenerator(DXCommandGenerator):
                         f"-isubpanel_bed={cnv_bedfile} "
                         f"-iproject_name={project_name} "
                         f"-ibamfile_pannumbers={pan_number} "
-                        f"--dest={project_id} --brief -y)\n"
+                        f"--dest={project_id} --brief -y\n" # Original format: single line, no JOB_ID, no DEPENDS_LIST
                     )
-                    
-                    # Add job tracking
-                    f.write(f"\n# Process {pan_number}\n")
                     f.write(command)
-                    f.write(f"""
-if [ -z "${{JOB_ID_CNV_{pan_number}}}" ]; then
-    echo "ERROR: Failed to submit CNV job for {pan_number}. Check dx toolkit output."
-else
-    echo "Successfully submitted CNV job for {pan_number}: ${{JOB_ID_CNV_{pan_number}}}"
-    DEPENDS_LIST="${{DEPENDS_LIST}} -d ${{JOB_ID_CNV_{pan_number}}}"
-fi
-""")
 
                 print(f"\nSuccessfully generated commands for CNV analysis")
                 print(f"Output written to: {output_file}")
@@ -199,6 +185,157 @@ fi
             print(f"Error writing to output file {output_file}: {e}")
         except Exception as e:
             print(f"An unexpected error occurred while generating commands: {e}")
+
+class CNVReanalysisCommandGenerator(CNVCommandGenerator):
+    """Generates CNV reanalysis commands for a specific sample and new panel"""
+
+    @property
+    def name(self) -> str:
+        return "CNV ExomeDepth Reanalysis"
+
+    @property
+    def description(self) -> str:
+        return "Generate a single CNV reanalysis command for a sample with a new Pan number/BED file"
+
+    def _find_original_pan_for_sample(self, dxfile_id: str, sample_identifier: str) -> Optional[str]:
+        """
+        Reads RunManifest.csv to find the original Pan number for a given sample identifier.
+        Assumes sample identifier is the first element in a comma-separated line,
+        and Pan number is in the format 'PanXXXX' later in the line.
+        """
+        print(f"Searching RunManifest.csv ({dxfile_id}) for original Pan number for sample: {sample_identifier}")
+        try:
+            dx_cat_cmd = ["dx", "cat", dxfile_id]
+            # Capture stderr to suppress dx tool messages unless an actual error occurs
+            process = subprocess.run(dx_cat_cmd, capture_output=True, text=True, check=False)
+
+            if process.returncode != 0:
+                print(f"Error reading manifest file {dxfile_id}: {process.stderr}", file=sys.stderr)
+                return None
+
+            manifest_content = process.stdout
+
+            for line in manifest_content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Updated regex: looks for the sample_identifier (case-insensitive) anywhere in the line,
+                # then captures the first 'Pan\d+' found in that same line.
+                # This makes it more robust if sample_identifier isn't strictly at the beginning.
+                # The prompt implies a 6-digit number, so let's specifically look for that too,
+                # but allow for broader sample names (like NGS0001_R1.001) as per workflow.py patterns.
+                
+                # Option 1: Sample identifier as a 6-digit number, followed by Pan
+                # Example: "123456,SomeData,Pan7890" -> original_pan = Pan7890
+                # Reverted to more generic search as per DXUtils.extract_pan_numbers logic,
+                # which assumes Pan\d+ might be anywhere after the sample identifier.
+                
+                # We expect the sample_identifier to be a distinct field or sub-string.
+                # Find the line that contains the sample_identifier.
+                # Then, within that line, find the Pan number.
+                if sample_identifier in line: # Simple check first to narrow down lines
+                    pan_match = re.search(r'(Pan\d+)', line, re.IGNORECASE)
+                    if pan_match:
+                        original_pan = pan_match.group(1)
+                        print(f"Found original Pan number for {sample_identifier}: {original_pan}")
+                        return original_pan
+            
+            print(f"Warning: Original Pan number for sample {sample_identifier} not found in RunManifest.csv.")
+            return None
+
+        except FileNotFoundError:
+            print(f"Error: 'dx' command not found. Please ensure the DNAnexus toolkit is installed and in your PATH.", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"An unexpected error occurred while extracting original Pan number: {e}", file=sys.stderr)
+            return None
+
+    def generate(self) -> None:
+        """Main method to generate a single CNV reanalysis command"""
+        print("\nCNV ExomeDepth Reanalysis Configuration:")
+        print("--------------------------------------")
+        print("Please provide details for the reanalysis request.")
+
+        try:
+            dxfile_id = input("Enter DNAnexus file ID for RunManifest.csv (e.g., file-xxxx): ").strip()
+            if not dxfile_id.startswith("file-"):
+                print("Error: Invalid DNAnexus file ID format. Must start with 'file-'")
+                return
+            
+            # The prompt implies the sample identifier is a 6-digit number for the reanalysis.
+            # However, the RunManifest.csv can contain sample names like NGS0001_R1.001.
+            # I will prompt for a generic sample identifier and adapt the _find_original_pan_for_sample
+            # to be flexible to find either.
+            sample_identifier = input("Enter sample identifier (e.g., 123456 or NGS0001_R1.001): ").strip()
+            if not sample_identifier:
+                print("Error: Sample identifier cannot be empty.")
+                return
+            
+            new_pan_number = input("Enter NEW Pan number for reanalysis (e.g., Pan1234): ").strip()
+            if not re.fullmatch(r'Pan\d+', new_pan_number, re.IGNORECASE):
+                print("Error: Invalid NEW Pan number format. Must be 'Pan' followed by digits (e.g., Pan1234).")
+                return
+
+            project_id, project_name = self._detect_project_info(dxfile_id)
+            if not project_id or not project_name:
+                print("Error: Could not detect project information from the provided file.")
+                return
+
+            print(f"\nDetected Project Information:")
+            print(f"  Project ID: {project_id}")
+            print(f"  Project Name: {project_name}")
+
+            readcount_file = self._find_readcount_file(project_id) # This is now correctly inherited
+            if not readcount_file:
+                print("Error: Could not find .RData readcount file in the project.")
+                return
+
+            cnv_bedfile = self._get_cnv_bedfile(new_pan_number) # This is now correctly inherited
+            if cnv_bedfile is None:
+                print(f"Error: No CNV bedfile configured for NEW Pan number {new_pan_number}. Cannot proceed with reanalysis.")
+                return
+
+            # Get the original Pan number from the manifest for the specific sample
+            original_pan_number = self._find_original_pan_for_sample(dxfile_id, sample_identifier)
+            if original_pan_number is None:
+                print(f"Error: Could not find original Pan number for sample {sample_identifier} in the manifest. Cannot proceed.")
+                return
+            
+
+            output_file = f"{project_name.replace(' ', '_')}_cnv_reanalysis_cmds.sh"
+
+            # Revert to original format for reanalysis output: single line command
+            if not self._initialize_output_file(output_file, project_id, project_name, "CNV ExomeDepth Reanalysis Commands", include_project_vars=False):
+                return
+
+            with open(output_file, 'a') as f:
+                command = (
+                    f"JOB_ID_CNV_REANALYSIS_{original_pan_number}=$(dx run {self.cnv_applet_id} "
+                    f"--priority high -y "
+                    f"--name ED_CNVcallingREANALYSIS-{new_pan_number} " # Name format as per original request
+                    f"-ireadcount_file={readcount_file} "
+                    f"-ibam_str=markdup "
+                    f"-ireference_genome={self.reference_genome} "
+                    f"-isamplename_str=_markdup.bam "
+                    f"-isubpanel_bed={cnv_bedfile} "
+                    f"-iproject_name={project_name} "
+                    f"-ibamfile_pannumbers={original_pan_number} "
+                    f"--dest={project_id}:/exomedepth_output/{new_pan_number} --brief -y)\n"
+                )
+                f.write(command)
+                print(f"\nGenerated CNV reanalysis command for sample {sample_identifier} (Original Pan: {original_pan_number}) with NEW panel {new_pan_number}")
+                print(f"Output written to: {output_file}")
+
+        except EOFError:
+            print("\nInput cancelled. Exiting.")
+            return
+        except KeyboardInterrupt:
+            print("\nOperation interrupted. Exiting.")
+            return
+        except Exception as e:
+            print(f"An unexpected error occurred during reanalysis command generation: {e}")
+            return
 
 if __name__ == "__main__":
     generator = CNVCommandGenerator()
